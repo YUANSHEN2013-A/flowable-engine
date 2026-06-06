@@ -1254,6 +1254,78 @@ public class InclusiveGatewayTest extends PluggableFlowableTestCase {
 
     @Test
     @Deployment
+    public void testParallelSubProcessesWithInclusiveGateway() {
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("parallelSubProcessesWithInclusiveGateway");
+
+        List<Execution> childExecutions = runtimeService.createExecutionQuery().processInstanceId(processInstance.getId()).onlyChildExecutions().list();
+        Map<String, List<Execution>> classifiedExecutions = childExecutions.stream().collect(Collectors.groupingBy(Execution::getActivityId));
+        assertThat(classifiedExecutions)
+                .containsKeys("subProcessA", "subProcessB", "nestedSubProcessA", "nestedSubProcessB",
+                        "taskA1", "taskA2", "taskB1", "taskB2");
+        assertThat(classifiedExecutions.get("subProcessA")).hasSize(1);
+        assertThat(classifiedExecutions.get("subProcessB")).hasSize(1);
+        assertThat(classifiedExecutions.get("nestedSubProcessA")).hasSize(1);
+        assertThat(classifiedExecutions.get("nestedSubProcessB")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskA1")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskA2")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskB1")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskB2")).hasSize(1);
+
+        List<Task> tasks = taskService.createTaskQuery().processInstanceId(processInstance.getId()).list();
+        Map<String, List<Task>> classifiedTasks = tasks.stream().collect(Collectors.groupingBy(Task::getTaskDefinitionKey));
+        assertThat(classifiedTasks)
+                .containsOnlyKeys("taskA1", "taskA2", "taskB1", "taskB2");
+        assertThat(classifiedTasks.get("taskA1")).hasSize(1);
+        assertThat(classifiedTasks.get("taskA2")).hasSize(1);
+        assertThat(classifiedTasks.get("taskB1")).hasSize(1);
+        assertThat(classifiedTasks.get("taskB2")).hasSize(1);
+
+        taskService.complete(classifiedTasks.get("taskA1").get(0).getId());
+
+        childExecutions = runtimeService.createExecutionQuery().processInstanceId(processInstance.getId()).onlyChildExecutions().list();
+        classifiedExecutions = childExecutions.stream().collect(Collectors.groupingBy(Execution::getActivityId));
+        assertThat(classifiedExecutions)
+                .containsKeys("subProcessA", "subProcessB", "nestedSubProcessA", "nestedSubProcessB",
+                        "taskA1", "taskA2", "taskB1", "taskB2", "inclusiveJoinA");
+        assertThat(classifiedExecutions.get("taskA1")).hasSize(0);
+        assertThat(classifiedExecutions.get("taskA2")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskB1")).hasSize(1);
+        assertThat(classifiedExecutions.get("taskB2")).hasSize(1);
+        assertThat(classifiedExecutions.get("inclusiveJoinA")).hasSize(1);
+
+        taskService.complete(taskService.createTaskQuery().processInstanceId(processInstance.getId()).taskDefinitionKey("taskA2").singleResult().getId());
+        taskService.complete(taskService.createTaskQuery().processInstanceId(processInstance.getId()).taskDefinitionKey("taskB1").singleResult().getId());
+        taskService.complete(taskService.createTaskQuery().processInstanceId(processInstance.getId()).taskDefinitionKey("taskB2").singleResult().getId());
+
+        childExecutions = runtimeService.createExecutionQuery().processInstanceId(processInstance.getId()).onlyChildExecutions().list();
+        classifiedExecutions = childExecutions.stream().collect(Collectors.groupingBy(Execution::getActivityId));
+        assertThat(classifiedExecutions)
+                .containsKeys("subProcessA", "subProcessB", "nestedSubProcessA", "nestedSubProcessB",
+                        "postForkTaskA", "postForkTaskB");
+        assertThat(classifiedExecutions.get("postForkTaskA")).hasSize(1);
+        assertThat(classifiedExecutions.get("postForkTaskB")).hasSize(1);
+
+        tasks = taskService.createTaskQuery().processInstanceId(processInstance.getId()).list();
+        classifiedTasks = tasks.stream().collect(Collectors.groupingBy(Task::getTaskDefinitionKey));
+        assertThat(classifiedTasks)
+                .containsOnlyKeys("postForkTaskA", "postForkTaskB");
+        assertThat(classifiedTasks.get("postForkTaskA")).hasSize(1);
+        assertThat(classifiedTasks.get("postForkTaskB")).hasSize(1);
+
+        tasks.forEach(this::completeTask);
+
+        childExecutions = runtimeService.createExecutionQuery().processInstanceId(processInstance.getId()).onlyChildExecutions().list();
+        assertThat(childExecutions).hasSize(1);
+        Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+        assertThat(task.getTaskDefinitionKey()).isEqualTo("lastTask");
+
+        taskService.complete(task.getId());
+
+        assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(processInstance.getId()).count()).isZero();
+    }
+
+    @Test
+    @Deployment
     void testWithFutureDelegates() {
         // the setup of the test is the following:
         // there are 3 delegate executions:

@@ -16,6 +16,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 
+import org.flowable.bpmn.model.Activity;
+import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.FlowNode;
 import org.flowable.common.engine.impl.context.Context;
 import org.flowable.common.engine.impl.interceptor.CommandContext;
@@ -66,6 +68,11 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
 
         lockFirstParentScope(execution);
 
+        DelegateExecution multiInstanceExecution = null;
+        if (hasMultiInstanceParent((FlowNode) execution.getCurrentFlowElement())) {
+            multiInstanceExecution = findMultiInstanceParentExecution(execution);
+        }
+
         Collection<ExecutionEntity> allExecutions = executionEntityManager.findChildExecutionsByProcessInstanceId(execution.getProcessInstanceId());
         Iterator<ExecutionEntity> executionIterator = allExecutions.iterator();
         boolean oneExecutionCanReachGatewayInstance = false;
@@ -73,34 +80,31 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
             ExecutionEntity executionEntity = executionIterator.next();
             if (!executionEntity.getActivityId().equals(execution.getCurrentActivityId())) {
                 if (ExecutionGraphUtil.isReachable(execution.getProcessDefinitionId(), executionEntity.getActivityId(), execution.getCurrentActivityId())) {
-                    //Now check if they are in the same "execution path"
-                    if (executionEntity.getParentId().equals(execution.getParentId())) {
+                    if (isChildOfSameScopeExecution(executionEntity, execution, multiInstanceExecution)) {
                         oneExecutionCanReachGatewayInstance = true;
                         break;
                     }
                 }
             } else if (executionEntity.isActive() && (executionEntity.getId().equals(execution.getId()) || isAsynchronousActivity(executionEntity))) {
-                // Special case: the execution has reached the inc gw, but the operation hasn't been executed yet for that execution
-                oneExecutionCanReachGatewayInstance = true;
-                break;
+                if (isChildOfSameScopeExecution(executionEntity, execution, multiInstanceExecution)) {
+                    oneExecutionCanReachGatewayInstance = true;
+                    break;
+                }
             }
         }
 
-        // Is needed to set the endTime for all historic activity joins
         if (!inactiveCheck || !oneExecutionCanReachGatewayInstance) {
             CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(execution, null);
         }
 
-        // If no execution can reach the gateway, the gateway activates and executes fork behavior
         if (!oneExecutionCanReachGatewayInstance) {
 
             LOGGER.debug("Inclusive gateway cannot be reached by any execution and is activated");
 
-            // Kill all executions here (except the incoming)
             Collection<ExecutionEntity> executionsInGateway = executionEntityManager
                 .findInactiveExecutionsByActivityIdAndProcessInstanceId(execution.getCurrentActivityId(), execution.getProcessInstanceId());
             for (ExecutionEntity executionEntityInGateway : executionsInGateway) {
-                if (!executionEntityInGateway.getId().equals(execution.getId()) && executionEntityInGateway.getParentId().equals(execution.getParentId())) {
+                if (!executionEntityInGateway.getId().equals(execution.getId()) && isInSameScopeAs(executionEntityInGateway, execution, multiInstanceExecution)) {
 
                     if (!Objects.equals(executionEntityInGateway.getActivityId(), execution.getActivityId())) {
                         CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(executionEntityInGateway, null);
@@ -110,12 +114,79 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
                 }
             }
 
-            // Leave
             CommandContextUtil.getAgenda(commandContext).planTakeOutgoingSequenceFlowsOperation(execution, true);
         }
     }
 
     protected boolean isAsynchronousActivity(ExecutionEntity executionEntity) {
         return executionEntity.getCurrentFlowElement() instanceof FlowNode && ((FlowNode) executionEntity.getCurrentFlowElement()).isAsynchronous();
+    }
+
+    protected boolean hasMultiInstanceParent(FlowNode flowNode) {
+        boolean hasMultiInstanceParent = false;
+        if (flowNode.getSubProcess() != null) {
+            if (flowNode.getSubProcess().getLoopCharacteristics() != null) {
+                hasMultiInstanceParent = true;
+            } else {
+                boolean hasNestedMultiInstanceParent = hasMultiInstanceParent(flowNode.getSubProcess());
+                if (hasNestedMultiInstanceParent) {
+                    hasMultiInstanceParent = true;
+                }
+            }
+        }
+        return hasMultiInstanceParent;
+    }
+
+    protected DelegateExecution findMultiInstanceParentExecution(DelegateExecution execution) {
+        DelegateExecution multiInstanceExecution = null;
+        DelegateExecution parentExecution = execution.getParent();
+        if (parentExecution != null && parentExecution.getCurrentFlowElement() != null) {
+            FlowElement flowElement = parentExecution.getCurrentFlowElement();
+            if (flowElement instanceof Activity) {
+                if (((Activity) flowElement).getLoopCharacteristics() != null) {
+                    multiInstanceExecution = parentExecution;
+                }
+            }
+
+            if (multiInstanceExecution == null) {
+                DelegateExecution potentialMultiInstanceExecution = findMultiInstanceParentExecution(parentExecution);
+                if (potentialMultiInstanceExecution != null) {
+                    multiInstanceExecution = potentialMultiInstanceExecution;
+                }
+            }
+        }
+        return multiInstanceExecution;
+    }
+
+    protected boolean isChildOfSameScopeExecution(DelegateExecution executionEntity, DelegateExecution execution, DelegateExecution multiInstanceExecution) {
+        if (multiInstanceExecution != null) {
+            return isChildOfMultiInstanceExecution(executionEntity, multiInstanceExecution)
+                    && isChildOfMultiInstanceExecution(execution, multiInstanceExecution);
+        }
+        return isInSameScopeAs(executionEntity, execution, null);
+    }
+
+    protected boolean isInSameScopeAs(DelegateExecution executionEntity, DelegateExecution execution, DelegateExecution multiInstanceExecution) {
+        if (multiInstanceExecution != null) {
+            return isChildOfMultiInstanceExecution(executionEntity, multiInstanceExecution)
+                    && isChildOfMultiInstanceExecution(execution, multiInstanceExecution);
+        }
+        return executionEntity.getParentId().equals(execution.getParentId());
+    }
+
+    protected boolean isChildOfMultiInstanceExecution(DelegateExecution executionEntity, DelegateExecution multiInstanceExecution) {
+        boolean isChild = false;
+        DelegateExecution parentExecution = executionEntity.getParent();
+        if (parentExecution != null) {
+            if (parentExecution.getId().equals(multiInstanceExecution.getId())) {
+                isChild = true;
+            } else {
+                boolean isNestedChild = isChildOfMultiInstanceExecution(parentExecution, multiInstanceExecution);
+                if (isNestedChild) {
+                    isChild = true;
+                }
+            }
+        }
+        return isChild;
     }
 }

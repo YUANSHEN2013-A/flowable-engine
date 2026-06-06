@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definition"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             targetNamespace="Examples">
+
+    <process id="parallelSubProcessesWithInclusiveGateway">
+
+        <startEvent id="theStart"/>
+        <sequenceFlow id="flow1" sourceRef="theStart" targetRef="parallelFork"/>
+
+        <parallelGateway id="parallelFork"/>
+
+        <sequenceFlow id="flow2" sourceRef="parallelFork" targetRef="subProcessA"/>
+        <sequenceFlow id="flow3" sourceRef="parallelFork" targetRef="subProcessB"/>
+
+        <subProcess id="subProcessA">
+            <startEvent id="subProcessAStart"/>
+            <sequenceFlow id="subAFlow1" sourceRef="subProcessAStart" targetRef="nestedSubProcessA"/>
+
+            <subProcess id="nestedSubProcessA">
+                <startEvent id="nestedSubProcessAStart"/>
+                <sequenceFlow id="nestedAFlow1" sourceRef="nestedSubProcessAStart" targetRef="inclusiveForkA"/>
+
+                <inclusiveGateway id="inclusiveForkA"/>
+
+                <sequenceFlow id="nestedAFlow2" sourceRef="inclusiveForkA" targetRef="taskA1">
+                    <conditionExpression>${true}</conditionExpression>
+                </sequenceFlow>
+
+                <sequenceFlow id="nestedAFlow3" sourceRef="inclusiveForkA" targetRef="taskA2">
+                    <conditionExpression>${true}</conditionExpression>
+                </sequenceFlow>
+
+                <userTask id="taskA1"/>
+                <userTask id="taskA2"/>
+
+                <sequenceFlow id="nestedAFlow4" sourceRef="taskA1" targetRef="inclusiveJoinA"/>
+                <sequenceFlow id="nestedAFlow5" sourceRef="taskA2" targetRef="inclusiveJoinA"/>
+
+                <inclusiveGateway id="inclusiveJoinA"/>
+
+                <sequenceFlow id="nestedAFlow6" sourceRef="inclusiveJoinA" targetRef="postForkTaskA"/>
+                <userTask id="postForkTaskA"/>
+                <sequenceFlow id="nestedAFlow7" sourceRef="postForkTaskA" targetRef="nestedSubProcessAEnd"/>
+                <endEvent id="nestedSubProcessAEnd"/>
+            </subProcess>
+
+            <sequenceFlow id="subAFlow2" sourceRef="nestedSubProcessA" targetRef="subProcessAEnd"/>
+            <endEvent id="subProcessAEnd"/>
+        </subProcess>
+
+        <subProcess id="subProcessB">
+            <startEvent id="subProcessBStart"/>
+            <sequenceFlow id="subBFlow1" sourceRef="subProcessBStart" targetRef="nestedSubProcessB"/>
+
+            <subProcess id="nestedSubProcessB">
+                <startEvent id="nestedSubProcessBStart"/>
+                <sequenceFlow id="nestedBFlow1" sourceRef="nestedSubProcessBStart" targetRef="inclusiveForkB"/>
+
+                <inclusiveGateway id="inclusiveForkB"/>
+
+                <sequenceFlow id="nestedBFlow2" sourceRef="inclusiveForkB" targetRef="taskB1">
+                    <conditionExpression>${true}</conditionExpression>
+                </sequenceFlow>
+
+                <sequenceFlow id="nestedBFlow3" sourceRef="inclusiveForkB" targetRef="taskB2">
+                    <conditionExpression>${true}</conditionExpression>
+                </sequenceFlow>
+
+                <userTask id="taskB1"/>
+                <userTask id="taskB2"/>
+
+                <sequenceFlow id="nestedBFlow4" sourceRef="taskB1" targetRef="inclusiveJoinB"/>
+                <sequenceFlow id="nestedBFlow5" sourceRef="taskB2" targetRef="inclusiveJoinB"/>
+
+                <inclusiveGateway id="inclusiveJoinB"/>
+
+                <sequenceFlow id="nestedBFlow6" sourceRef="inclusiveJoinB" targetRef="postForkTaskB"/>
+                <userTask id="postForkTaskB"/>
+                <sequenceFlow id="nestedBFlow7" sourceRef="postForkTaskB" targetRef="nestedSubProcessBEnd"/>
+                <endEvent id="nestedSubProcessBEnd"/>
+            </subProcess>
+
+            <sequenceFlow id="subBFlow2" sourceRef="nestedSubProcessB" targetRef="subProcessBEnd"/>
+            <endEvent id="subProcessBEnd"/>
+        </subProcess>
+
+        <sequenceFlow id="flow4" sourceRef="subProcessA" targetRef="parallelJoin"/>
+        <sequenceFlow id="flow5" sourceRef="subProcessB" targetRef="parallelJoin"/>
+
+        <parallelGateway id="parallelJoin"/>
+
+        <sequenceFlow id="flow6" sourceRef="parallelJoin" targetRef="lastTask"/>
+        <userTask id="lastTask"/>
+        <sequenceFlow id="flow7" sourceRef="lastTask" targetRef="theEnd"/>
+        <endEvent id="theEnd"/>
+    </process>
+
+</definitions>
