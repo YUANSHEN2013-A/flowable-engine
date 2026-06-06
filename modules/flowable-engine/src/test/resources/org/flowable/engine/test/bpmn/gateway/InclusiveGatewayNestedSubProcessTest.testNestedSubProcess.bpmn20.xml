@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions" 
+  xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:flowable="http://flowable.org/bpmn"
+  targetNamespace="Examples">
+
+  <process id="inclusiveGatewayNestedSubProcess">
+
+    <startEvent id="theStart" />
+    <sequenceFlow sourceRef="theStart" targetRef="multiInstanceSubProcess" />
+
+    <subProcess id="multiInstanceSubProcess">
+      <multiInstanceLoopCharacteristics isSequential="false">
+        <loopCardinality>1</loopCardinality>
+      </multiInstanceLoopCharacteristics>
+
+      <startEvent id="subProcessStart" />
+      <sequenceFlow sourceRef="subProcessStart" targetRef="inclusiveFork" />
+
+      <inclusiveGateway id="inclusiveFork" />
+
+      <sequenceFlow sourceRef="inclusiveFork" targetRef="nestedSubProcess" />
+      <sequenceFlow sourceRef="inclusiveFork" targetRef="task2" />
+
+      <subProcess id="nestedSubProcess">
+        <startEvent id="nestedStart" />
+        <sequenceFlow sourceRef="nestedStart" targetRef="task1" />
+        
+        <userTask id="task1" name="Task 1" />
+        <sequenceFlow sourceRef="task1" targetRef="nestedEnd" />
+        
+        <endEvent id="nestedEnd" />
+      </subProcess>
+
+      <userTask id="task2" name="Task 2" />
+
+      <sequenceFlow sourceRef="nestedSubProcess" targetRef="inclusiveJoin" />
+      <sequenceFlow sourceRef="task2" targetRef="inclusiveJoin" />
+
+      <inclusiveGateway id="inclusiveJoin" />
+      <sequenceFlow sourceRef="inclusiveJoin" targetRef="subProcessEnd" />
+
+      <endEvent id="subProcessEnd" />
+    </subProcess>
+
+    <sequenceFlow sourceRef="multiInstanceSubProcess" targetRef="finalTask" />
+    <userTask id="finalTask" name="Final Task" />
+    
+    <sequenceFlow sourceRef="finalTask" targetRef="theEnd" />
+    <endEvent id="theEnd" />
+
+  </process>
+
+</definitions>

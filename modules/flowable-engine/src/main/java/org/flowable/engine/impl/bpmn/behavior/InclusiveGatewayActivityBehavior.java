@@ -71,10 +71,10 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
         boolean oneExecutionCanReachGatewayInstance = false;
         while (!oneExecutionCanReachGatewayInstance && executionIterator.hasNext()) {
             ExecutionEntity executionEntity = executionIterator.next();
-            if (!executionEntity.getActivityId().equals(execution.getCurrentActivityId())) {
+            if (!Objects.equals(executionEntity.getActivityId(), execution.getCurrentActivityId())) {
                 if (ExecutionGraphUtil.isReachable(execution.getProcessDefinitionId(), executionEntity.getActivityId(), execution.getCurrentActivityId())) {
                     //Now check if they are in the same "execution path"
-                    if (executionEntity.getParentId().equals(execution.getParentId())) {
+                    if (isInSameExecutionPath(executionEntity, execution)) {
                         oneExecutionCanReachGatewayInstance = true;
                         break;
                     }
@@ -117,5 +117,20 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
 
     protected boolean isAsynchronousActivity(ExecutionEntity executionEntity) {
         return executionEntity.getCurrentFlowElement() instanceof FlowNode && ((FlowNode) executionEntity.getCurrentFlowElement()).isAsynchronous();
+    }
+
+    protected boolean isInSameExecutionPath(ExecutionEntity executionEntity, ExecutionEntity gatewayExecution) {
+        String gatewayParentId = gatewayExecution.getParentId();
+        if (gatewayParentId == null) {
+            return true;
+        }
+        ExecutionEntity current = executionEntity;
+        while (current != null) {
+            if (Objects.equals(current.getParentId(), gatewayParentId)) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
     }
 }
