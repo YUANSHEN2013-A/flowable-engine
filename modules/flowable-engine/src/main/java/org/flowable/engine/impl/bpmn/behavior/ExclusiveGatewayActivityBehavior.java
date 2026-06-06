@@ -74,6 +74,7 @@ public class ExclusiveGatewayActivityBehavior extends GatewayActivityBehavior {
         SequenceFlow outgoingSequenceFlow = null;
         SequenceFlow defaultSequenceFlow = null;
         String defaultSequenceFlowId = exclusiveGateway.getDefaultFlow();
+        DelegateExecution sequenceFlowExecution = ConditionUtil.getExecutionForSequenceFlowEvaluation(execution);
 
         // Determine sequence flow to take
         Iterator<SequenceFlow> sequenceFlowIterator = exclusiveGateway.getOutgoingFlows().iterator();
@@ -81,8 +82,8 @@ public class ExclusiveGatewayActivityBehavior extends GatewayActivityBehavior {
             SequenceFlow sequenceFlow = sequenceFlowIterator.next();
 
             String skipExpressionString = sequenceFlow.getSkipExpression();
-            if (!SkipExpressionUtil.isSkipExpressionEnabled(skipExpressionString, sequenceFlow.getId(), execution, commandContext)) {
-                boolean conditionEvaluatesToTrue = ConditionUtil.hasTrueCondition(sequenceFlow, execution);
+            if (!SkipExpressionUtil.isSkipExpressionEnabled(skipExpressionString, sequenceFlow.getId(), sequenceFlowExecution, commandContext)) {
+                boolean conditionEvaluatesToTrue = ConditionUtil.hasTrueCondition(sequenceFlow, sequenceFlowExecution);
                 if (conditionEvaluatesToTrue && (defaultSequenceFlowId == null || !defaultSequenceFlowId.equals(sequenceFlow.getId()))) {
                     if (LOGGER.isDebugEnabled()) {
                         LOGGER.debug("Sequence flow '{}' selected as outgoing sequence flow.", sequenceFlow.getId());
@@ -90,7 +91,7 @@ public class ExclusiveGatewayActivityBehavior extends GatewayActivityBehavior {
                     outgoingSequenceFlow = sequenceFlow;
                 }
                 
-            } else if (SkipExpressionUtil.shouldSkipFlowElement(skipExpressionString, sequenceFlow.getId(), execution, Context.getCommandContext())) {
+            } else if (SkipExpressionUtil.shouldSkipFlowElement(skipExpressionString, sequenceFlow.getId(), sequenceFlowExecution, Context.getCommandContext())) {
                 outgoingSequenceFlow = sequenceFlow;
             }
 

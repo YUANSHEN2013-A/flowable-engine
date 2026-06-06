@@ -32,22 +32,49 @@ import tools.jackson.databind.node.ObjectNode;
  */
 public class ConditionUtil {
 
+    protected static final String SEQUENCE_FLOW_EVALUATION_EXECUTION = "flowableSequenceFlowEvaluationExecution";
+
     public static boolean hasTrueCondition(SequenceFlow sequenceFlow, DelegateExecution execution) {
+        DelegateExecution evaluationExecution = getExecutionForSequenceFlowEvaluation(execution);
         String conditionExpression = null;
         if (CommandContextUtil.getProcessEngineConfiguration().isEnableProcessDefinitionInfoCache()) {
-            ObjectNode elementProperties = BpmnOverrideContext.getBpmnOverrideElementProperties(sequenceFlow.getId(), execution.getProcessDefinitionId());
+            ObjectNode elementProperties = BpmnOverrideContext.getBpmnOverrideElementProperties(sequenceFlow.getId(), evaluationExecution.getProcessDefinitionId());
             conditionExpression = getActiveValue(sequenceFlow.getConditionExpression(), DynamicBpmnConstants.SEQUENCE_FLOW_CONDITION, elementProperties);
         } else {
             conditionExpression = sequenceFlow.getConditionExpression();
         }
 
         if (StringUtils.isNotEmpty(conditionExpression)) {
-	        String conditionLanguage = sequenceFlow.getConditionLanguage();
-	        return hasTrueCondition(sequenceFlow.getId(), conditionExpression, conditionLanguage, execution);
+            String conditionLanguage = sequenceFlow.getConditionLanguage();
+            return hasTrueCondition(sequenceFlow.getId(), conditionExpression, conditionLanguage, evaluationExecution);
         } else {
             return true;
         }
 
+    }
+
+    public static DelegateExecution getExecutionForSequenceFlowEvaluation(DelegateExecution execution) {
+        Object evaluationExecution = execution.getTransientVariableLocal(SEQUENCE_FLOW_EVALUATION_EXECUTION);
+        if (evaluationExecution instanceof DelegateExecution delegateExecution) {
+            return delegateExecution;
+        }
+        return execution;
+    }
+
+    public static void setExecutionForSequenceFlowEvaluation(DelegateExecution execution, DelegateExecution evaluationExecution) {
+        if (evaluationExecution != null && evaluationExecution != execution) {
+            evaluationExecution.getVariablesLocal();
+            evaluationExecution.getTransientVariablesLocal();
+            execution.setTransientVariableLocal(SEQUENCE_FLOW_EVALUATION_EXECUTION, evaluationExecution);
+        }
+    }
+
+    public static void copyExecutionForSequenceFlowEvaluation(DelegateExecution execution, DelegateExecution executionToCopyFrom) {
+        setExecutionForSequenceFlowEvaluation(execution, getExecutionForSequenceFlowEvaluation(executionToCopyFrom));
+    }
+
+    public static void clearExecutionForSequenceFlowEvaluation(DelegateExecution execution) {
+        execution.removeTransientVariableLocal(SEQUENCE_FLOW_EVALUATION_EXECUTION);
     }
 
 	public static boolean hasTrueCondition(String elementId, String conditionExpression, String conditionLanguage, DelegateExecution execution) {

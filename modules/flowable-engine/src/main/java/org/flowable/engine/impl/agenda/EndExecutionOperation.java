@@ -46,6 +46,7 @@ import org.flowable.engine.impl.persistence.entity.ExecutionEntityManager;
 import org.flowable.engine.impl.runtime.callback.ProcessInstanceState;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.engine.impl.util.ProcessDefinitionUtil;
+import org.flowable.engine.impl.util.condition.ConditionUtil;
 import org.flowable.job.service.JobService;
 import org.flowable.job.service.impl.persistence.entity.JobEntity;
 import org.slf4j.Logger;
@@ -318,6 +319,7 @@ public class EndExecutionOperation extends AbstractOperation {
         executionToContinue = executionEntityManager.createChildExecution(parentExecution.getParent());
         executionToContinue.setCurrentFlowElement(subProcess);
         executionToContinue.setActive(false);
+        ConditionUtil.copyExecutionForSequenceFlowEvaluation(executionToContinue, parentExecution);
 
         boolean hasCompensation = false;
         if (subProcess instanceof Transaction) {
@@ -370,12 +372,14 @@ public class EndExecutionOperation extends AbstractOperation {
                 // create a new execution to take the outgoing sequence flows
                 executionToContinue = executionEntityManager.createChildExecution(parentExecution);
                 executionToContinue.setCurrentFlowElement(execution.getCurrentFlowElement());
+                ConditionUtil.copyExecutionForSequenceFlowEvaluation(executionToContinue, execution);
 
             } else {
                 if (!parentExecution.getId().equals(parentExecution.getProcessInstanceId())) {
                     // create a new execution to take the outgoing sequence flows
                     executionToContinue = executionEntityManager.createChildExecution(parentExecution.getParent());
                     executionToContinue.setCurrentFlowElement(parentExecution.getCurrentFlowElement());
+                    ConditionUtil.copyExecutionForSequenceFlowEvaluation(executionToContinue, execution);
 
                     executionEntityManager.deleteChildExecutions(parentExecution, null, false);
                     executionEntityManager.deleteExecutionAndRelatedData(parentExecution, null, false);
@@ -387,6 +391,10 @@ public class EndExecutionOperation extends AbstractOperation {
 
         } else {
             executionToContinue = parentExecution;
+        }
+
+        if (executionToContinue == parentExecution && executionToContinue != execution) {
+            ConditionUtil.copyExecutionForSequenceFlowEvaluation(executionToContinue, execution);
         }
         return executionToContinue;
     }

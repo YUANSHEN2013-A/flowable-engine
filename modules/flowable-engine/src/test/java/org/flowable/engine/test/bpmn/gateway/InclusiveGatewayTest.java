@@ -36,6 +36,7 @@ import org.flowable.common.engine.impl.interceptor.Command;
 import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.common.engine.impl.util.CollectionUtil;
 import org.flowable.engine.delegate.DelegateExecution;
+import org.flowable.engine.delegate.ExecutionListener;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.flowable.engine.delegate.MapBasedFlowableFutureJavaDelegate;
 import org.flowable.engine.delegate.ReadOnlyDelegateExecution;
@@ -1250,6 +1251,88 @@ public class InclusiveGatewayTest extends PluggableFlowableTestCase {
         taskService.complete(task.getId());
 
         assertProcessEnded(processInstance.getId());
+    }
+
+    @Test
+    public void testInclusiveGatewayAfterNestedSubProcessInParallelMultiInstance() {
+        org.flowable.engine.repository.Deployment deployment = repositoryService.createDeployment()
+                .addString("inclusiveGatewayAfterNestedSubProcessInParallelMultiInstance.bpmn20.xml", createInclusiveGatewayAfterNestedSubProcessProcess())
+                .deploy();
+
+        try {
+            ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("inclusiveGatewayAfterNestedSubProcessInParallelMultiInstance",
+                    CollectionUtil.singletonMap("routes", List.of("left", "both")));
+
+            List<Task> tasks = taskService.createTaskQuery().processInstanceId(processInstance.getId()).list();
+            assertThat(tasks)
+                    .extracting(Task::getTaskDefinitionKey)
+                    .containsExactlyInAnyOrder("taskA", "taskA", "taskB");
+
+            tasks.forEach(this::completeTask);
+
+            assertProcessEnded(processInstance.getId());
+
+            if (HistoryTestHelper.isHistoryLevelAtLeast(HistoryLevel.AUDIT, processEngineConfiguration)) {
+                assertThat(historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstance.getId()).count()).isEqualTo(3);
+                assertThat(historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstance.getId()).taskDefinitionKey("taskA").count()).isEqualTo(2);
+                assertThat(historyService.createHistoricTaskInstanceQuery().processInstanceId(processInstance.getId()).taskDefinitionKey("taskB").count()).isEqualTo(1);
+            }
+        } finally {
+            repositoryService.deleteDeployment(deployment.getId(), true);
+        }
+    }
+
+    protected String createInclusiveGatewayAfterNestedSubProcessProcess() {
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                             xmlns:flowable="http://flowable.org/bpmn"
+                             targetNamespace="Examples">
+                  <process id="inclusiveGatewayAfterNestedSubProcessInParallelMultiInstance" isExecutable="true">
+                    <startEvent id="start"/>
+                    <sequenceFlow id="flow1" sourceRef="start" targetRef="parallelMiSubProcess"/>
+                    <subProcess id="parallelMiSubProcess">
+                      <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="routes" flowable:elementVariable="route"/>
+                      <startEvent id="miStart"/>
+                      <sequenceFlow id="miFlow1" sourceRef="miStart" targetRef="nestedSubProcess"/>
+                      <subProcess id="nestedSubProcess">
+                        <extensionElements>
+                          <flowable:executionListener event="end" class="org.flowable.engine.test.bpmn.gateway.InclusiveGatewayTest$SetRouteDecisionExecutionListener"/>
+                        </extensionElements>
+                        <startEvent id="nestedStart"/>
+                        <sequenceFlow id="nestedFlow1" sourceRef="nestedStart" targetRef="nestedEnd"/>
+                        <endEvent id="nestedEnd"/>
+                      </subProcess>
+                      <sequenceFlow id="miFlow2" sourceRef="nestedSubProcess" targetRef="inclusiveGateway"/>
+                      <inclusiveGateway id="inclusiveGateway"/>
+                      <sequenceFlow id="toTaskA" sourceRef="inclusiveGateway" targetRef="taskA">
+                        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${routeDecision == 'left' || routeDecision == 'both'}]]></conditionExpression>
+                      </sequenceFlow>
+                      <sequenceFlow id="toTaskB" sourceRef="inclusiveGateway" targetRef="taskB">
+                        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${routeDecision == 'right' || routeDecision == 'both'}]]></conditionExpression>
+                      </sequenceFlow>
+                      <userTask id="taskA" name="Task A"/>
+                      <userTask id="taskB" name="Task B"/>
+                      <sequenceFlow id="miFlow3" sourceRef="taskA" targetRef="inclusiveJoin"/>
+                      <sequenceFlow id="miFlow4" sourceRef="taskB" targetRef="inclusiveJoin"/>
+                      <inclusiveGateway id="inclusiveJoin"/>
+                      <sequenceFlow id="miFlow5" sourceRef="inclusiveJoin" targetRef="miEnd"/>
+                      <endEvent id="miEnd"/>
+                    </subProcess>
+                    <sequenceFlow id="flow2" sourceRef="parallelMiSubProcess" targetRef="processEnd"/>
+                    <endEvent id="processEnd"/>
+                  </process>
+                </definitions>
+                """;
+    }
+
+    public static class SetRouteDecisionExecutionListener implements ExecutionListener {
+
+        @Override
+        public void notify(DelegateExecution execution) {
+            execution.setTransientVariableLocal("routeDecision", execution.getVariable("route"));
+        }
     }
 
     @Test
