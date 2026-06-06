@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions"
+  xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:activiti="http://activiti.org/bpmn"
+  targetNamespace="Examples">
+
+  <process id="inclusiveGatewayInParallelSubProcess">
+
+    <startEvent id="theStart" />
+    <sequenceFlow id="flow1" sourceRef="theStart" targetRef="fork" />
+
+    <parallelGateway id="fork" />
+    <sequenceFlow sourceRef="fork" targetRef="subProcess1" />
+    <sequenceFlow sourceRef="fork" targetRef="subProcess2" />
+
+    <subProcess id="subProcess1">
+      <startEvent id="subStart1" />
+      <sequenceFlow sourceRef="subStart1" targetRef="inclusiveGw1" />
+
+      <inclusiveGateway id="inclusiveGw1" />
+      <sequenceFlow sourceRef="inclusiveGw1" targetRef="task1a">
+        <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          ${decision == 'a' || decision == 'both'}
+        </conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow sourceRef="inclusiveGw1" targetRef="task1b">
+        <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          ${decision == 'b' || decision == 'both'}
+        </conditionExpression>
+      </sequenceFlow>
+
+      <userTask id="task1a" name="Task 1A" />
+      <sequenceFlow sourceRef="task1a" targetRef="subJoin1" />
+
+      <userTask id="task1b" name="Task 1B" />
+      <sequenceFlow sourceRef="task1b" targetRef="subJoin1" />
+
+      <inclusiveGateway id="subJoin1" />
+      <sequenceFlow sourceRef="subJoin1" targetRef="subEnd1" />
+
+      <endEvent id="subEnd1" />
+    </subProcess>
+
+    <subProcess id="subProcess2">
+      <startEvent id="subStart2" />
+      <sequenceFlow sourceRef="subStart2" targetRef="inclusiveGw2" />
+
+      <inclusiveGateway id="inclusiveGw2" />
+      <sequenceFlow sourceRef="inclusiveGw2" targetRef="task2a">
+        <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          ${decision == 'a' || decision == 'both'}
+        </conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow sourceRef="inclusiveGw2" targetRef="task2b">
+        <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          ${decision == 'b' || decision == 'both'}
+        </conditionExpression>
+      </sequenceFlow>
+
+      <userTask id="task2a" name="Task 2A" />
+      <sequenceFlow sourceRef="task2a" targetRef="subJoin2" />
+
+      <userTask id="task2b" name="Task 2B" />
+      <sequenceFlow sourceRef="task2b" targetRef="subJoin2" />
+
+      <inclusiveGateway id="subJoin2" />
+      <sequenceFlow sourceRef="subJoin2" targetRef="subEnd2" />
+
+      <endEvent id="subEnd2" />
+    </subProcess>
+
+    <sequenceFlow sourceRef="subProcess1" targetRef="join" />
+    <sequenceFlow sourceRef="subProcess2" targetRef="join" />
+
+    <parallelGateway id="join" />
+    <sequenceFlow sourceRef="join" targetRef="theEnd" />
+
+    <endEvent id="theEnd" />
+
+  </process>
+
+</definitions>

@@ -1,0 +1,65 @@
+diff --git a/modules/flowable-engine/src/main/java/org/flowable/engine/impl/bpmn/behavior/InclusiveGatewayActivityBehavior.java b/modules/flowable-engine/src/main/java/org/flowable/engine/impl/bpmn/behavior/InclusiveGatewayActivityBehavior.java
+index 2e662e50f0..44b27121d1 100644
+--- a/modules/flowable-engine/src/main/java/org/flowable/engine/impl/bpmn/behavior/InclusiveGatewayActivityBehavior.java
++++ b/modules/flowable-engine/src/main/java/org/flowable/engine/impl/bpmn/behavior/InclusiveGatewayActivityBehavior.java
+@@ -73,8 +73,8 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
+             ExecutionEntity executionEntity = executionIterator.next();
+             if (!executionEntity.getActivityId().equals(execution.getCurrentActivityId())) {
+                 if (ExecutionGraphUtil.isReachable(execution.getProcessDefinitionId(), executionEntity.getActivityId(), execution.getCurrentActivityId())) {
+-                    //Now check if they are in the same "execution path"
+-                    if (executionEntity.getParentId().equals(execution.getParentId())) {
++                    // Check if they are in the same execution hierarchy - i.e., they share a common scope ancestor
++                    if (isInSameExecutionHierarchy(executionEntity, execution)) {
+                         oneExecutionCanReachGatewayInstance = true;
+                         break;
+                     }
+@@ -100,7 +100,7 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
+             Collection<ExecutionEntity> executionsInGateway = executionEntityManager
+                 .findInactiveExecutionsByActivityIdAndProcessInstanceId(execution.getCurrentActivityId(), execution.getProcessInstanceId());
+             for (ExecutionEntity executionEntityInGateway : executionsInGateway) {
+-                if (!executionEntityInGateway.getId().equals(execution.getId()) && executionEntityInGateway.getParentId().equals(execution.getParentId())) {
++                if (!executionEntityInGateway.getId().equals(execution.getId()) && isInSameExecutionHierarchy(executionEntityInGateway, execution)) {
+ 
+                     if (!Objects.equals(executionEntityInGateway.getActivityId(), execution.getActivityId())) {
+                         CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(executionEntityInGateway, null);
+@@ -114,6 +114,40 @@ public class InclusiveGatewayActivityBehavior extends GatewayActivityBehavior im
+             CommandContextUtil.getAgenda(commandContext).planTakeOutgoingSequenceFlowsOperation(execution, true);
+         }
+     }
++    
++    /**
++     * Check if two executions are in the same execution hierarchy.
++     * This means they share a common ancestor that is either a scope execution or a multi-instance root.
++     */
++    protected boolean isInSameExecutionHierarchy(ExecutionEntity execution1, ExecutionEntity execution2) {
++        if (execution1.getId().equals(execution2.getId())) {
++            return true;
++        }
++        
++        // Check if they have the same parent directly first for backward compatibility
++        if (execution1.getParentId() != null && execution1.getParentId().equals(execution2.getParentId())) {
++            return true;
++        }
++        
++        // Build the ancestor chains for both executions
++        java.util.Set<String> execution1Ancestors = new java.util.HashSet<>();
++        ExecutionEntity current = execution1;
++        while (current != null) {
++            execution1Ancestors.add(current.getId());
++            current = current.getParent();
++        }
++        
++        // Check if execution2 or any of its ancestors are in execution1's ancestor chain
++        current = execution2;
++        while (current != null) {
++            if (execution1Ancestors.contains(current.getId())) {
++                return true;
++            }
++            current = current.getParent();
++        }
++        
++        return false;
++    }
+ 
+     protected boolean isAsynchronousActivity(ExecutionEntity executionEntity) {
+         return executionEntity.getCurrentFlowElement() instanceof FlowNode && ((FlowNode) executionEntity.getCurrentFlowElement()).isAsynchronous();
