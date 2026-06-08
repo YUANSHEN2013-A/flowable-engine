@@ -1,0 +1,66 @@
+diff --git a/modules/flowable-process-validation/pom.xml b/modules/flowable-process-validation/pom.xml
+index a13d1f6267..035c6aabf3 100644
+--- a/modules/flowable-process-validation/pom.xml
++++ b/modules/flowable-process-validation/pom.xml
+@@ -36,6 +36,11 @@
+ 			<groupId>org.flowable</groupId>
+ 			<artifactId>flowable-bpmn-model</artifactId>
+ 		</dependency>
++		<dependency>
++			<groupId>org.flowable</groupId>
++			<artifactId>flowable-bpmn-converter</artifactId>
++			<scope>test</scope>
++		</dependency>
+ 	</dependencies>
+ 
+ </project>
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+index 1da8cb6dd0..100c06f365 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+@@ -39,6 +39,11 @@ public interface Problems {
+ 
+     String USER_TASK_LISTENER_IMPLEMENTATION_MISSING = "flowable-usertask-listener-implementation-missing";
+     String USER_TASK_LISTENER_MISSING_EVENT = "flowable-usertask-listener-event-missing";
++    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-missing-element-variable";
++    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-assignee-not-using-element-variable";
++    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-users-not-using-element-variable";
++    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-groups-not-using-element-variable";
++    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-user-task-collection-loop-cardinality-conflict";
+ 
+     String SERVICE_TASK_INVALID_TYPE = "flowable-servicetask-invalid-type";
+     String SERVICE_TASK_RESULT_VAR_NAME_WITH_DELEGATE = "flowable-servicetask-result-var-name-with-delegate";
+@@ -140,4 +145,4 @@ public interface Problems {
+     String DI_DOES_NOT_REFERENCE_FLOWNODE = "flowable-di-does-not-reference-flownode";
+     String DI_DOES_NOT_REFERENCE_SEQ_FLOW = "flowable-di-does-not-reference-seq-flow";
+ 
+-}
++}
+\ No newline at end of file
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+index 544836c3c3..6cf0c0aae8 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+@@ -29,6 +29,7 @@ import org.flowable.validation.validator.impl.FlowableEventListenerValidator;
+ import org.flowable.validation.validator.impl.IntermediateCatchEventValidator;
+ import org.flowable.validation.validator.impl.IntermediateThrowEventValidator;
+ import org.flowable.validation.validator.impl.MessageValidator;
++import org.flowable.validation.validator.impl.MultiInstanceUserTaskValidator;
+ import org.flowable.validation.validator.impl.OperationValidator;
+ import org.flowable.validation.validator.impl.ScriptTaskValidator;
+ import org.flowable.validation.validator.impl.SendTaskValidator;
+@@ -59,6 +60,7 @@ public class ValidatorSetFactory {
+         validatorSet.addValidator(new StartEventValidator());
+         validatorSet.addValidator(new SequenceflowValidator());
+         validatorSet.addValidator(new UserTaskValidator());
++        validatorSet.addValidator(new MultiInstanceUserTaskValidator());
+         validatorSet.addValidator(new ServiceTaskValidator());
+         validatorSet.addValidator(new ScriptTaskValidator());
+         validatorSet.addValidator(new SendTaskValidator());
+@@ -81,4 +83,4 @@ public class ValidatorSetFactory {
+         return validatorSet;
+     }
+ 
+-}
++}
+\ No newline at end of file

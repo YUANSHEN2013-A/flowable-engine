@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="Examples">
+  <process id="validMultiInstanceUserTaskProcess" isExecutable="true">
+    <startEvent id="start"/>
+    <sequenceFlow id="flow1" sourceRef="start" targetRef="miUserTask"/>
+    <userTask id="miUserTask"
+              flowable:assignee="${reviewer}"
+              flowable:candidateUsers="${reviewer}"
+              flowable:candidateGroups="${reviewer}">
+      <multiInstanceLoopCharacteristics isSequential="false"
+                                        flowable:collection="${reviewers}"
+                                        flowable:elementVariable="reviewer"/>
+    </userTask>
+    <sequenceFlow id="flow2" sourceRef="miUserTask" targetRef="end"/>
+    <endEvent id="end"/>
+  </process>
+</definitions>

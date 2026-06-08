@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="Examples">
+  <process id="missingElementVariableProcess" isExecutable="true">
+    <startEvent id="start"/>
+    <sequenceFlow id="flow1" sourceRef="start" targetRef="miUserTask"/>
+    <userTask id="miUserTask">
+      <multiInstanceLoopCharacteristics isSequential="false"
+                                        flowable:collection="${reviewers}"/>
+    </userTask>
+    <sequenceFlow id="flow2" sourceRef="miUserTask" targetRef="end"/>
+    <endEvent id="end"/>
+  </process>
+</definitions>

@@ -36,6 +36,11 @@
 			<groupId>org.flowable</groupId>
 			<artifactId>flowable-bpmn-model</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.flowable</groupId>
+			<artifactId>flowable-bpmn-converter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 </project>

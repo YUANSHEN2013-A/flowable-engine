@@ -39,6 +39,11 @@ public interface Problems {
 
     String USER_TASK_LISTENER_IMPLEMENTATION_MISSING = "flowable-usertask-listener-implementation-missing";
     String USER_TASK_LISTENER_MISSING_EVENT = "flowable-usertask-listener-event-missing";
+    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-missing-element-variable";
+    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-assignee-not-using-element-variable";
+    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-users-not-using-element-variable";
+    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-groups-not-using-element-variable";
+    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-user-task-collection-loop-cardinality-conflict";
 
     String SERVICE_TASK_INVALID_TYPE = "flowable-servicetask-invalid-type";
     String SERVICE_TASK_RESULT_VAR_NAME_WITH_DELEGATE = "flowable-servicetask-result-var-name-with-delegate";
