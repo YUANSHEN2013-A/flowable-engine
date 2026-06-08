@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions" 
+  xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:flowable="http://flowable.org/bpmn"
+  targetNamespace="http://flowable.org/bpmn20">
+
+  <process id="invalidCandidateGroups" name="Invalid Candidate Groups">
+    <startEvent id="theStart" />
+    <sequenceFlow id="flow1" sourceRef="theStart" targetRef="miTask" />
+    
+    <userTask id="miTask" name="MI Task" flowable:assignee="${item}" flowable:candidateGroups="group1, group2">
+      <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="myCollection" flowable:elementVariable="item" />
+    </userTask>
+
+    <sequenceFlow id="flow2" sourceRef="miTask" targetRef="theEnd" />
+    <endEvent id="theEnd" />
+  </process>
+
+</definitions>

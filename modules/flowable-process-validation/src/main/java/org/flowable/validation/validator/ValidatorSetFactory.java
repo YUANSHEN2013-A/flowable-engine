@@ -38,6 +38,7 @@ import org.flowable.validation.validator.impl.SignalValidator;
 import org.flowable.validation.validator.impl.StartEventValidator;
 import org.flowable.validation.validator.impl.SubprocessValidator;
 import org.flowable.validation.validator.impl.UserTaskValidator;
+import org.flowable.validation.validator.impl.MultiInstanceUserTaskValidator;
 
 /**
  * @author jbarrez

@@ -1,0 +1,60 @@
+diff --git a/modules/flowable-process-validation/pom.xml b/modules/flowable-process-validation/pom.xml
+index a13d1f6267..37bdbb79ad 100644
+--- a/modules/flowable-process-validation/pom.xml
++++ b/modules/flowable-process-validation/pom.xml
+@@ -36,6 +36,26 @@
+ 			<groupId>org.flowable</groupId>
+ 			<artifactId>flowable-bpmn-model</artifactId>
+ 		</dependency>
++		<dependency>
++			<groupId>org.flowable</groupId>
++			<artifactId>flowable-bpmn-converter</artifactId>
++			<scope>test</scope>
++		</dependency>
++		<dependency>
++			<groupId>org.junit.jupiter</groupId>
++			<artifactId>junit-jupiter-api</artifactId>
++			<scope>test</scope>
++		</dependency>
++		<dependency>
++			<groupId>org.junit.jupiter</groupId>
++			<artifactId>junit-jupiter-engine</artifactId>
++			<scope>test</scope>
++		</dependency>
++		<dependency>
++			<groupId>org.assertj</groupId>
++			<artifactId>assertj-core</artifactId>
++			<scope>test</scope>
++		</dependency>
+ 	</dependencies>
+ 
+ </project>
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+index 1da8cb6dd0..21cec5be20 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+@@ -109,6 +109,12 @@ public interface Problems {
+ 
+     String MULTI_INSTANCE_MISSING_COLLECTION = "flowable-multi-instance-missing-collection";
+     String MULTI_INSTANCE_MISSING_COLLECTION_FUNCTION_PARAMETERS = "flowable-multi-instance-missing-collection-parser";
++
++    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-missing-element-variable";
++    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-assignee-not-using-element-variable";
++    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-users-not-using-element-variable";
++    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-groups-not-using-element-variable";
++    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-collection-and-loopcardinality-conflict";
+     
+     String MESSAGE_MISSING_NAME = "flowable-message-missing-name";
+     String MESSAGE_INVALID_ITEM_REF = "flowable-message-invalid-item-ref";
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+index 544836c3c3..f2d0fefe62 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+@@ -38,6 +38,7 @@ import org.flowable.validation.validator.impl.SignalValidator;
+ import org.flowable.validation.validator.impl.StartEventValidator;
+ import org.flowable.validation.validator.impl.SubprocessValidator;
+ import org.flowable.validation.validator.impl.UserTaskValidator;
++import org.flowable.validation.validator.impl.MultiInstanceUserTaskValidator;
+ 
+ /**
+  * @author jbarrez

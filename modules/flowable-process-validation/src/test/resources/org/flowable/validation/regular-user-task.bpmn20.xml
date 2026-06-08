@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definitions" 
+  xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:flowable="http://flowable.org/bpmn"
+  targetNamespace="http://flowable.org/bpmn20">
+
+  <process id="regularUserTask" name="Regular User Task">
+    <startEvent id="theStart" />
+    <sequenceFlow id="flow1" sourceRef="theStart" targetRef="miTask" />
+    
+    <userTask id="miTask" name="Regular Task" flowable:assignee="someUser" />
+
+    <sequenceFlow id="flow2" sourceRef="miTask" targetRef="theEnd" />
+    <endEvent id="theEnd" />
+  </process>
+
+</definitions>
