@@ -68,13 +68,17 @@ public class AcquireExternalWorkerJobsCmd implements Command<List<AcquiredExtern
         ExternalWorkerJobEntityManager externalWorkerJobEntityManager = jobServiceConfiguration.getExternalWorkerJobEntityManager();
         InternalJobManager internalJobManager = jobServiceConfiguration.getInternalJobManager();
 
-        List<ExternalWorkerJobEntity> jobs = externalWorkerJobEntityManager.findExternalJobsToExecute(builder, numberOfJobs);
-
         int lockTimeInMillis = (int) builder.getLockDuration().abs().toMillis();
+        GregorianCalendar gregorianCalendar = new GregorianCalendar();
+        gregorianCalendar.setTime(jobServiceConfiguration.getClock().getCurrentTime());
+        gregorianCalendar.add(Calendar.MILLISECOND, lockTimeInMillis);
+
+        List<ExternalWorkerJobEntity> jobs = externalWorkerJobEntityManager.findExternalJobsToExecuteAndLock(
+                builder, numberOfJobs, workerId, gregorianCalendar.getTime());
+
         List<AcquiredExternalWorkerJob> acquiredJobs = new ArrayList<>(jobs.size());
 
         for (ExternalWorkerJobEntity job : jobs) {
-            lockJob(commandContext, job, lockTimeInMillis);
             Map<String, Object> variables = null;
             if (internalJobManager != null) {
                 variables = internalJobManager.resolveVariablesForExternalWorkerJob(job);
@@ -88,13 +92,5 @@ public class AcquireExternalWorkerJobsCmd implements Command<List<AcquiredExtern
         }
 
         return acquiredJobs;
-    }
-
-    protected void lockJob(CommandContext commandContext, JobInfoEntity job, int lockTimeInMillis) {
-        GregorianCalendar gregorianCalendar = new GregorianCalendar();
-        gregorianCalendar.setTime(jobServiceConfiguration.getClock().getCurrentTime());
-        gregorianCalendar.add(Calendar.MILLISECOND, lockTimeInMillis);
-        job.setLockOwner(workerId);
-        job.setLockExpirationTime(gregorianCalendar.getTime());
     }
 }

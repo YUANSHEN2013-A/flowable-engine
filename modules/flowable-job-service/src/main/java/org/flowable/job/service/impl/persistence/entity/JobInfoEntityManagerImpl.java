@@ -59,6 +59,11 @@ public abstract class JobInfoEntityManagerImpl<T extends JobInfoEntity, DM exten
     }
 
     @Override
+    public List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
+        return dataManager.findJobsToExecuteAndLock(enabledCategories, page, lockOwner, lockExpirationTime);
+    }
+
+    @Override
     public void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime) {
         dataManager.bulkUpdateJobLockWithoutRevisionCheck(jobEntities, lockOwner, lockExpirationTime);
     }

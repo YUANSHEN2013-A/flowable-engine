@@ -161,6 +161,26 @@ public class MybatisJobDataManager extends AbstractDataManager<JobEntity> implem
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public List<JobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("jobExecutionScope", jobServiceConfiguration.getJobExecutionScope());
+        params.put("lockOwner", lockOwner);
+        params.put("lockExpirationTime", lockExpirationTime);
+        
+        if (enabledCategories != null && enabledCategories.size() > 0) {
+            params.put("enabledCategories", enabledCategories);
+        }
+        
+        ListQueryParameterObject listQueryParameterObject = new ListQueryParameterObject(params, page.getFirstResult(), page.getMaxResults());
+        listQueryParameterObject.setIgnoreOrderBy();
+        
+        getDbSqlSession().directUpdate("findAndLockJobs", listQueryParameterObject);
+        
+        return getDbSqlSession().selectList("selectLockedJobs", listQueryParameterObject);
+    }
+
+    @Override
     protected IdGenerator getIdGenerator() {
         return jobServiceConfiguration.getIdGenerator();
     }

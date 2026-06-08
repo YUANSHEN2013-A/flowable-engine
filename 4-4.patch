@@ -1,0 +1,471 @@
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireExternalWorkerJobsCmd.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireExternalWorkerJobsCmd.java
+index cf72f0bba4..895c15f3b2 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireExternalWorkerJobsCmd.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireExternalWorkerJobsCmd.java
+@@ -68,13 +68,17 @@ public class AcquireExternalWorkerJobsCmd implements Command<List<AcquiredExtern
+         ExternalWorkerJobEntityManager externalWorkerJobEntityManager = jobServiceConfiguration.getExternalWorkerJobEntityManager();
+         InternalJobManager internalJobManager = jobServiceConfiguration.getInternalJobManager();
+ 
+-        List<ExternalWorkerJobEntity> jobs = externalWorkerJobEntityManager.findExternalJobsToExecute(builder, numberOfJobs);
+-
+         int lockTimeInMillis = (int) builder.getLockDuration().abs().toMillis();
++        GregorianCalendar gregorianCalendar = new GregorianCalendar();
++        gregorianCalendar.setTime(jobServiceConfiguration.getClock().getCurrentTime());
++        gregorianCalendar.add(Calendar.MILLISECOND, lockTimeInMillis);
++
++        List<ExternalWorkerJobEntity> jobs = externalWorkerJobEntityManager.findExternalJobsToExecuteAndLock(
++                builder, numberOfJobs, workerId, gregorianCalendar.getTime());
++
+         List<AcquiredExternalWorkerJob> acquiredJobs = new ArrayList<>(jobs.size());
+ 
+         for (ExternalWorkerJobEntity job : jobs) {
+-            lockJob(commandContext, job, lockTimeInMillis);
+             Map<String, Object> variables = null;
+             if (internalJobManager != null) {
+                 variables = internalJobManager.resolveVariablesForExternalWorkerJob(job);
+@@ -89,12 +93,4 @@ public class AcquireExternalWorkerJobsCmd implements Command<List<AcquiredExtern
+ 
+         return acquiredJobs;
+     }
+-
+-    protected void lockJob(CommandContext commandContext, JobInfoEntity job, int lockTimeInMillis) {
+-        GregorianCalendar gregorianCalendar = new GregorianCalendar();
+-        gregorianCalendar.setTime(jobServiceConfiguration.getClock().getCurrentTime());
+-        gregorianCalendar.add(Calendar.MILLISECOND, lockTimeInMillis);
+-        job.setLockOwner(workerId);
+-        job.setLockExpirationTime(gregorianCalendar.getTime());
+-    }
+ }
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireJobsCmd.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireJobsCmd.java
+index 24010f16b1..298bcbad13 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireJobsCmd.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireJobsCmd.java
+@@ -49,19 +49,14 @@ public class AcquireJobsCmd implements Command<List<? extends JobInfoEntity>> {
+     public List<? extends JobInfoEntity> execute(CommandContext commandContext) {
+         int maxResults = Math.min(remainingCapacity, asyncExecutor.getMaxAsyncJobsDuePerAcquisition());
+         List<String> enabledCategories = asyncExecutor.getJobServiceConfiguration().getEnabledJobCategories();
+-        List<? extends JobInfoEntity> jobs = jobEntityManager.findJobsToExecute(enabledCategories, new Page(0, maxResults));
+-
+-        for (JobInfoEntity job : jobs) {
+-            lockJob(job, asyncExecutor.getAsyncJobLockTimeInMillis(), asyncExecutor.getJobServiceConfiguration());
+-        }
+-
+-        return jobs;
+-    }
+-
+-    protected void lockJob(JobInfoEntity job, int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
+-        GregorianCalendar gregorianCalendar = calculateLockExpirationTime(lockTimeInMillis, jobServiceConfiguration);
+-        job.setLockOwner(asyncExecutor.getLockOwner());
+-        job.setLockExpirationTime(gregorianCalendar.getTime());
++        GregorianCalendar gregorianCalendar = calculateLockExpirationTime(asyncExecutor.getAsyncJobLockTimeInMillis(), asyncExecutor.getJobServiceConfiguration());
++        
++        return jobEntityManager.findJobsToExecuteAndLockInBulk(
++            enabledCategories, 
++            new Page(0, maxResults), 
++            asyncExecutor.getLockOwner(), 
++            gregorianCalendar.getTime()
++        );
+     }
+ 
+     protected GregorianCalendar calculateLockExpirationTime(int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireTimerJobsCmd.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireTimerJobsCmd.java
+index aa595e3bd1..bc69e024c1 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireTimerJobsCmd.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/AcquireTimerJobsCmd.java
+@@ -39,25 +39,11 @@ public class AcquireTimerJobsCmd implements Command<List<TimerJobEntity>> {
+     public List<TimerJobEntity> execute(CommandContext commandContext) {
+         JobServiceConfiguration jobServiceConfiguration = asyncExecutor.getJobServiceConfiguration();
+         List<String> enabledCategories = jobServiceConfiguration.getEnabledJobCategories();
+-        List<TimerJobEntity> timerJobs = jobServiceConfiguration.getTimerJobEntityManager()
+-            .findJobsToExecute(enabledCategories, new Page(0, asyncExecutor.getMaxTimerJobsPerAcquisition()));
+-
+-        for (TimerJobEntity job : timerJobs) {
+-            lockJob(commandContext, job, asyncExecutor.getTimerLockTimeInMillis(), jobServiceConfiguration);
+-        }
+-
+-        return timerJobs;
+-    }
+-
+-    protected void lockJob(CommandContext commandContext, TimerJobEntity job, int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
+-
+-        // This will use the regular updates flush in the DbSqlSession
+-        // This will trigger an optimistic locking exception when two concurrent executors
+-        // try to lock, as the revision will not match.
+-
+-        GregorianCalendar jobExpirationTime = calculateLockExpirationTime(lockTimeInMillis, jobServiceConfiguration);
+-        job.setLockOwner(asyncExecutor.getLockOwner());
+-        job.setLockExpirationTime(jobExpirationTime.getTime());
++        GregorianCalendar jobExpirationTime = calculateLockExpirationTime(asyncExecutor.getTimerLockTimeInMillis(), jobServiceConfiguration);
++        
++        return jobServiceConfiguration.getTimerJobEntityManager()
++            .findJobsToExecuteAndLockInBulk(enabledCategories, new Page(0, asyncExecutor.getMaxTimerJobsPerAcquisition()), 
++                asyncExecutor.getLockOwner(), jobExpirationTime.getTime());
+     }
+ 
+     protected GregorianCalendar calculateLockExpirationTime(int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManager.java
+index 85790df950..94048d1582 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManager.java
+@@ -64,4 +64,6 @@ public interface ExternalWorkerJobEntityManager extends EntityManager<ExternalWo
+     long findJobCountByQueryCriteria(ExternalWorkerJobQueryImpl jobQuery);
+ 
+     List<ExternalWorkerJobEntity> findExternalJobsToExecute(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs);
++
++    List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime);
+ }
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManagerImpl.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManagerImpl.java
+index fa290557b7..5af01d9b0e 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManagerImpl.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/ExternalWorkerJobEntityManagerImpl.java
+@@ -93,6 +93,11 @@ public class ExternalWorkerJobEntityManagerImpl
+         return dataManager.findExternalJobsToExecute(builder, numberOfJobs);
+     }
+ 
++    @Override
++    public List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime) {
++        return dataManager.findExternalJobsToExecuteAndLock(builder, numberOfJobs, lockOwner, lockExpirationTime);
++    }
++
+     @Override
+     public void delete(ExternalWorkerJobEntity entity, boolean fireDeleteEvent) {
+         deleteByteArrayRef(entity.getExceptionByteArrayRef());
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManager.java
+index 6b188c148f..b184777864 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManager.java
+@@ -53,15 +53,7 @@ public interface JobInfoEntityManager <T extends JobInfoEntity> extends EntityMa
+      */
+     void updateJobTenantIdForDeployment(String deploymentId, String newTenantId);
+ 
+-    // Done with a default method, as otherwise the generics make the code hard to follow in the AcquireJobsCmd
+-    default List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
+-        List<T> jobs = findJobsToExecute(enabledCategories, page);
+-
+-        if (!jobs.isEmpty()) {
+-            bulkUpdateJobLockWithoutRevisionCheck(jobs, lockOwner, lockExpirationTime);
+-        }
+-        return jobs;
+-    }
++    List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime);
+ 
+     void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime);
+ 
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManagerImpl.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManagerImpl.java
+index 46d7507f59..2a5f383e73 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManagerImpl.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/JobInfoEntityManagerImpl.java
+@@ -58,6 +58,11 @@ public abstract class JobInfoEntityManagerImpl<T extends JobInfoEntity, DM exten
+         dataManager.resetExpiredJob(jobId);
+     }
+ 
++    @Override
++    public List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
++        return dataManager.findJobsToExecuteAndLock(enabledCategories, page, lockOwner, lockExpirationTime);
++    }
++
+     @Override
+     public void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime) {
+         dataManager.bulkUpdateJobLockWithoutRevisionCheck(jobEntities, lockOwner, lockExpirationTime);
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/ExternalWorkerJobDataManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/ExternalWorkerJobDataManager.java
+index b76eb8d413..f9f855f347 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/ExternalWorkerJobDataManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/ExternalWorkerJobDataManager.java
+@@ -35,6 +35,8 @@ public interface ExternalWorkerJobDataManager extends DataManager<ExternalWorker
+ 
+     List<ExternalWorkerJobEntity> findExternalJobsToExecute(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs);
+ 
++    List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime);
++
+     List<ExternalWorkerJobEntity> findJobsByScopeIdAndSubScopeId(String scopeId, String subScopeId);
+     
+     List<ExternalWorkerJobEntity> findJobsByWorkerId(String workerId);
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/JobInfoDataManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/JobInfoDataManager.java
+index 57838cfd28..d69a69c405 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/JobInfoDataManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/JobInfoDataManager.java
+@@ -35,4 +35,6 @@ public interface JobInfoDataManager<T extends JobInfoEntity> extends DataManager
+ 
+     void resetExpiredJob(String jobId);
+ 
++    List<T> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime);
++
+ }
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisExternalWorkerJobDataManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisExternalWorkerJobDataManager.java
+index 149d347425..b428dd424a 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisExternalWorkerJobDataManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisExternalWorkerJobDataManager.java
+@@ -175,6 +175,28 @@ public class MybatisExternalWorkerJobDataManager extends AbstractDataManager<Ext
+         return getList("selectExternalWorkerJobsByWorkerIdAndTenantId", paramMap);
+     }
+     
++    @Override
++    @SuppressWarnings("unchecked")
++    public List<ExternalWorkerJobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, org.flowable.common.engine.impl.Page page, String lockOwner, java.util.Date lockExpirationTime) {
++        throw new UnsupportedOperationException("Use findExternalJobsToExecuteAndLock method for external worker jobs");
++    }
++    
++    @SuppressWarnings("unchecked")
++    public List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime) {
++        java.util.Map<String, Object> params = new java.util.HashMap<>();
++        params.put("topic", builder.getTopic());
++        params.put("scopeType", builder.getScopeType());
++        params.put("tenantId", builder.getTenantId());
++        params.put("authorizedUser", builder.getAuthorizedUser());
++        params.put("authorizedGroups", builder.getAuthorizedGroups());
++        params.put("lockOwner", lockOwner);
++        params.put("lockExpirationTime", lockExpirationTime);
++        
++        getDbSqlSession().directUpdate("findAndLockExternalWorkerJobs", params, new org.flowable.common.engine.impl.Page(0, numberOfJobs));
++        
++        return getDbSqlSession().selectList("selectLockedExternalWorkerJobs", params);
++    }
++
+     @Override
+     protected IdGenerator getIdGenerator() {
+         return jobServiceConfiguration.getIdGenerator();
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisJobDataManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisJobDataManager.java
+index 0ba0f37383..8160481182 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisJobDataManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisJobDataManager.java
+@@ -160,6 +160,26 @@ public class MybatisJobDataManager extends AbstractDataManager<JobEntity> implem
+         }
+     }
+ 
++    @Override
++    @SuppressWarnings("unchecked")
++    public List<JobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
++        Map<String, Object> params = new HashMap<>();
++        params.put("jobExecutionScope", jobServiceConfiguration.getJobExecutionScope());
++        params.put("lockOwner", lockOwner);
++        params.put("lockExpirationTime", lockExpirationTime);
++        
++        if (enabledCategories != null && enabledCategories.size() > 0) {
++            params.put("enabledCategories", enabledCategories);
++        }
++        
++        ListQueryParameterObject listQueryParameterObject = new ListQueryParameterObject(params, page.getFirstResult(), page.getMaxResults());
++        listQueryParameterObject.setIgnoreOrderBy();
++        
++        getDbSqlSession().directUpdate("findAndLockJobs", listQueryParameterObject);
++        
++        return getDbSqlSession().selectList("selectLockedJobs", listQueryParameterObject);
++    }
++
+     @Override
+     protected IdGenerator getIdGenerator() {
+         return jobServiceConfiguration.getIdGenerator();
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisTimerJobDataManager.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisTimerJobDataManager.java
+index e1399764a2..901058b3b5 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisTimerJobDataManager.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/persistence/entity/data/impl/MybatisTimerJobDataManager.java
+@@ -200,6 +200,28 @@ public class MybatisTimerJobDataManager extends AbstractDataManager<TimerJobEnti
+         bulkDeleteEntities("deleteTimerJobs", timerJobEntities);
+     }
+ 
++    @Override
++    @SuppressWarnings("unchecked")
++    public List<TimerJobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
++        Map<String, Object> params = new HashMap<>();
++        String jobExecutionScope = jobServiceConfiguration.getJobExecutionScope();
++        params.put("jobExecutionScope", jobExecutionScope);
++        params.put("now", jobServiceConfiguration.getClock().getCurrentTime());
++        params.put("lockOwner", lockOwner);
++        params.put("lockExpirationTime", lockExpirationTime);
++        
++        if (enabledCategories != null && enabledCategories.size() > 0) {
++            params.put("enabledCategories", enabledCategories);
++        }
++        
++        ListQueryParameterObject listQueryParameterObject = new ListQueryParameterObject(params, page.getFirstResult(), page.getMaxResults());
++        listQueryParameterObject.setIgnoreOrderBy();
++        
++        getDbSqlSession().directUpdate("findAndLockTimerJobs", listQueryParameterObject);
++        
++        return getDbSqlSession().selectList("selectLockedTimerJobs", listQueryParameterObject);
++    }
++
+     @Override
+     protected IdGenerator getIdGenerator() {
+         return jobServiceConfiguration.getIdGenerator();
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
+index 84590cb2d3..d7f5e7aeba 100755
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
+@@ -67,8 +67,7 @@
+         <where>
+             and HANDLER_CFG_ = #{parameter.topic, jdbcType=NVARCHAR}
+             <if test="parameter.scopeType != null">
+-                <choose>
+-                    <when test="parameter.scopeType == 'bpmn'">
++                <choose>                    <when test="parameter.scopeType == 'bpmn'">
+                         and PROCESS_INSTANCE_ID_ is not null
+                     </when>
+                     <otherwise>
+@@ -105,6 +104,66 @@
+         <if test="needsPaging">${limitAfter}</if>
+     </select>
+ 
++    <update id="findAndLockExternalWorkerJobs" parameterType="java.util.Map">
++        <if test="needsPaging">${limitBefore}</if>
++        UPDATE ${prefix}ACT_RU_EXTERNAL_JOB
++        SET LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR},
++            LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP},
++            REV_ = REV_ + 1
++        WHERE ID_ IN (
++            SELECT ID_ FROM (
++                SELECT RES.ID_
++                FROM ${prefix}ACT_RU_EXTERNAL_JOB RES
++                <where>
++                    and RES.HANDLER_CFG_ = #{topic, jdbcType=NVARCHAR}
++                    <if test="scopeType != null">
++                        <choose>
++                            <when test="scopeType == 'bpmn'">
++                                and RES.PROCESS_INSTANCE_ID_ is not null
++                            </when>
++                            <otherwise>
++                                and RES.SCOPE_TYPE_ = #{scopeType, jdbcType=NVARCHAR}
++                            </otherwise>
++                        </choose>
++                    </if>
++                    <if test="tenantId != null">
++                        <choose>
++                            <when test="tenantId != ''">
++                                and RES.TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
++                            </when>
++                            <otherwise>
++                                and (RES.TENANT_ID_ = '' or RES.TENANT_ID_ is null)
++                            </otherwise>
++                        </choose>
++                    </if>
++                    <trim prefix="AND (" prefixOverrides="OR" suffix=")">
++                        <if test="authorizedUser != null">
++                            exists (select ID_ from ${prefix}ACT_RU_IDENTITYLINK IDN where IDN.SCOPE_ID_ = RES.CORRELATION_ID_ and IDN.SCOPE_TYPE_ = 'externalWorker' and IDN.USER_ID_ = #{authorizedUser, jdbcType=NVARCHAR})
++                        </if>
++                        <if test="authorizedGroups != null &amp;&amp; !authorizedGroups.empty">
++                            OR exists (select ID_ from ${prefix}ACT_RU_IDENTITYLINK IDN where IDN.SCOPE_ID_ = RES.CORRELATION_ID_ and IDN.SCOPE_TYPE_ = 'externalWorker' and IDN.GROUP_ID_ IN
++                            <foreach item="groupId" index="index" collection="authorizedGroups"
++                                     open="(" separator="," close=")">
++                                #{groupId, jdbcType=NVARCHAR}
++                            </foreach>
++                            )
++                        </if>
++                    </trim>
++                    and RES.LOCK_EXP_TIME_ is null
++                </where>
++                <if test="needsPaging">${limitAfter}</if>
++            ) AS TEMP
++        )
++        <if test="needsPaging">${limitAfter}</if>
++    </update>
++
++    <select id="selectLockedExternalWorkerJobs" parameterType="java.util.Map" resultMap="externalWorkerJobResultMap">
++        SELECT RES.*
++        from ${prefix}ACT_RU_EXTERNAL_JOB RES
++        WHERE RES.LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR}
++          AND RES.LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP}
++    </select>
++
+     <select id="selectExpiredExternalWorkerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="externalWorkerJobResultMap">
+         <if test="needsPaging">${limitBefore}</if>
+         SELECT RES.* <if test="needsPaging">${limitBetween}</if>
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
+index 4d0f07bcd6..cafd8a5fe3 100755
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
+@@ -71,6 +71,46 @@
+         </where>
+         <if test="needsPaging">${limitAfter}</if>
+     </select>
++
++    <update id="findAndLockJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
++        <if test="needsPaging">${limitBefore}</if>
++        UPDATE ${prefix}ACT_RU_JOB
++        SET LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR},
++            LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP},
++            REV_ = REV_ + 1
++        WHERE ID_ IN (
++            SELECT ID_ FROM (
++                SELECT RES.ID_
++                FROM ${prefix}ACT_RU_JOB RES
++                <where>
++                    <if test="parameter.jobExecutionScope == null">
++                        RES.SCOPE_TYPE_ is null and RES.LOCK_EXP_TIME_ is null
++                    </if>
++                    <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
++                        RES.SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR} and RES.LOCK_EXP_TIME_ is null
++                    </if>
++                    <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope == 'all'">
++                        RES.LOCK_EXP_TIME_ is null
++                    </if>
++                    <if test="parameter.enabledCategories != null">
++                        and RES.CATEGORY_ in
++                        <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
++                            #{category, jdbcType=VARCHAR}
++                        </foreach>
++                    </if>
++                </where>
++                <if test="needsPaging">${limitAfter}</if>
++            ) AS TEMP
++        )
++        <if test="needsPaging">${limitAfter}</if>
++    </update>
++
++    <select id="selectLockedJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
++        SELECT RES.*
++        from ${prefix}ACT_RU_JOB RES
++        WHERE RES.LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR}
++          AND RES.LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP}
++    </select>
+     
+     <select id="selectExpiredJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
+         <if test="needsPaging">${limitBefore}</if>
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
+index d4a89627a3..78e64a6015 100644
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
+@@ -306,6 +306,44 @@
+         <if test="needsPaging">${limitAfter}</if>
+     </select>
+ 
++    <update id="findAndLockTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
++        <if test="needsPaging">${limitBefore}</if>
++        UPDATE ${prefix}ACT_RU_TIMER_JOB
++        SET LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR},
++            LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP},
++            REV_ = REV_ + 1
++        WHERE ID_ in (
++            SELECT ID_ FROM (
++                SELECT RES.ID_
++                FROM ${prefix}ACT_RU_TIMER_JOB RES
++                WHERE 
++                <if test="parameter.jobExecutionScope == null">
++                    RES.SCOPE_TYPE_ is null
++                </if>
++                <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
++                    RES.SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
++                </if>
++                and RES.DUEDATE_ &lt;= #{parameter.now, jdbcType=TIMESTAMP}
++                and RES.LOCK_OWNER_ is null
++                <if test="parameter.enabledCategories != null">
++                    and RES.CATEGORY_ in
++                    <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
++                        #{category, jdbcType=VARCHAR}
++                    </foreach>
++                </if>
++                <if test="needsPaging">${limitAfter}</if>
++            ) AS TEMP
++        )
++        <if test="needsPaging">${limitAfter}</if>
++    </update>
++
++    <select id="selectLockedTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
++        SELECT RES.*
++        from ${prefix}ACT_RU_TIMER_JOB RES
++        WHERE RES.LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR}
++          AND RES.LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP}
++    </select>
++
+     <select id="selectExpiredTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
+         <if test="needsPaging">${limitBefore}</if>
+         SELECT RES.* <if test="needsPaging">${limitBetween}</if>

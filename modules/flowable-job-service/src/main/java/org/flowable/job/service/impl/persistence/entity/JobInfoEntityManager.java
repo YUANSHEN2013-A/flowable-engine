@@ -53,15 +53,7 @@ public interface JobInfoEntityManager <T extends JobInfoEntity> extends EntityMa
      */
     void updateJobTenantIdForDeployment(String deploymentId, String newTenantId);
 
-    // Done with a default method, as otherwise the generics make the code hard to follow in the AcquireJobsCmd
-    default List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
-        List<T> jobs = findJobsToExecute(enabledCategories, page);
-
-        if (!jobs.isEmpty()) {
-            bulkUpdateJobLockWithoutRevisionCheck(jobs, lockOwner, lockExpirationTime);
-        }
-        return jobs;
-    }
+    List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime);
 
     void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime);
 

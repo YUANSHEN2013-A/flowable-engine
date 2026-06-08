@@ -39,25 +39,11 @@ public class AcquireTimerJobsCmd implements Command<List<TimerJobEntity>> {
     public List<TimerJobEntity> execute(CommandContext commandContext) {
         JobServiceConfiguration jobServiceConfiguration = asyncExecutor.getJobServiceConfiguration();
         List<String> enabledCategories = jobServiceConfiguration.getEnabledJobCategories();
-        List<TimerJobEntity> timerJobs = jobServiceConfiguration.getTimerJobEntityManager()
-            .findJobsToExecute(enabledCategories, new Page(0, asyncExecutor.getMaxTimerJobsPerAcquisition()));
-
-        for (TimerJobEntity job : timerJobs) {
-            lockJob(commandContext, job, asyncExecutor.getTimerLockTimeInMillis(), jobServiceConfiguration);
-        }
-
-        return timerJobs;
-    }
-
-    protected void lockJob(CommandContext commandContext, TimerJobEntity job, int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
-
-        // This will use the regular updates flush in the DbSqlSession
-        // This will trigger an optimistic locking exception when two concurrent executors
-        // try to lock, as the revision will not match.
-
-        GregorianCalendar jobExpirationTime = calculateLockExpirationTime(lockTimeInMillis, jobServiceConfiguration);
-        job.setLockOwner(asyncExecutor.getLockOwner());
-        job.setLockExpirationTime(jobExpirationTime.getTime());
+        GregorianCalendar jobExpirationTime = calculateLockExpirationTime(asyncExecutor.getTimerLockTimeInMillis(), jobServiceConfiguration);
+        
+        return jobServiceConfiguration.getTimerJobEntityManager()
+            .findJobsToExecuteAndLockInBulk(enabledCategories, new Page(0, asyncExecutor.getMaxTimerJobsPerAcquisition()), 
+                asyncExecutor.getLockOwner(), jobExpirationTime.getTime());
     }
 
     protected GregorianCalendar calculateLockExpirationTime(int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {

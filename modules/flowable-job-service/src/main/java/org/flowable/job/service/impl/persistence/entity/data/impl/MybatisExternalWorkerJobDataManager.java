@@ -176,6 +176,28 @@ public class MybatisExternalWorkerJobDataManager extends AbstractDataManager<Ext
     }
     
     @Override
+    @SuppressWarnings("unchecked")
+    public List<ExternalWorkerJobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, org.flowable.common.engine.impl.Page page, String lockOwner, java.util.Date lockExpirationTime) {
+        throw new UnsupportedOperationException("Use findExternalJobsToExecuteAndLock method for external worker jobs");
+    }
+    
+    @SuppressWarnings("unchecked")
+    public List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime) {
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("topic", builder.getTopic());
+        params.put("scopeType", builder.getScopeType());
+        params.put("tenantId", builder.getTenantId());
+        params.put("authorizedUser", builder.getAuthorizedUser());
+        params.put("authorizedGroups", builder.getAuthorizedGroups());
+        params.put("lockOwner", lockOwner);
+        params.put("lockExpirationTime", lockExpirationTime);
+        
+        getDbSqlSession().directUpdate("findAndLockExternalWorkerJobs", params, new org.flowable.common.engine.impl.Page(0, numberOfJobs));
+        
+        return getDbSqlSession().selectList("selectLockedExternalWorkerJobs", params);
+    }
+
+    @Override
     protected IdGenerator getIdGenerator() {
         return jobServiceConfiguration.getIdGenerator();
     }

@@ -201,6 +201,28 @@ public class MybatisTimerJobDataManager extends AbstractDataManager<TimerJobEnti
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public List<TimerJobEntity> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
+        Map<String, Object> params = new HashMap<>();
+        String jobExecutionScope = jobServiceConfiguration.getJobExecutionScope();
+        params.put("jobExecutionScope", jobExecutionScope);
+        params.put("now", jobServiceConfiguration.getClock().getCurrentTime());
+        params.put("lockOwner", lockOwner);
+        params.put("lockExpirationTime", lockExpirationTime);
+        
+        if (enabledCategories != null && enabledCategories.size() > 0) {
+            params.put("enabledCategories", enabledCategories);
+        }
+        
+        ListQueryParameterObject listQueryParameterObject = new ListQueryParameterObject(params, page.getFirstResult(), page.getMaxResults());
+        listQueryParameterObject.setIgnoreOrderBy();
+        
+        getDbSqlSession().directUpdate("findAndLockTimerJobs", listQueryParameterObject);
+        
+        return getDbSqlSession().selectList("selectLockedTimerJobs", listQueryParameterObject);
+    }
+
+    @Override
     protected IdGenerator getIdGenerator() {
         return jobServiceConfiguration.getIdGenerator();
     }

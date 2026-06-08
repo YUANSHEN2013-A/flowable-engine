@@ -35,4 +35,6 @@ public interface JobInfoDataManager<T extends JobInfoEntity> extends DataManager
 
     void resetExpiredJob(String jobId);
 
+    List<T> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime);
+
 }

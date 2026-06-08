@@ -94,6 +94,11 @@ public class ExternalWorkerJobEntityManagerImpl
     }
 
     @Override
+    public List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime) {
+        return dataManager.findExternalJobsToExecuteAndLock(builder, numberOfJobs, lockOwner, lockExpirationTime);
+    }
+
+    @Override
     public void delete(ExternalWorkerJobEntity entity, boolean fireDeleteEvent) {
         deleteByteArrayRef(entity.getExceptionByteArrayRef());
         deleteByteArrayRef(entity.getCustomValuesByteArrayRef());

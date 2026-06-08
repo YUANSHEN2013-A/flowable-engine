@@ -71,6 +71,46 @@
         </where>
         <if test="needsPaging">${limitAfter}</if>
     </select>
+
+    <update id="findAndLockJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
+        <if test="needsPaging">${limitBefore}</if>
+        UPDATE ${prefix}ACT_RU_JOB
+        SET LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR},
+            LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP},
+            REV_ = REV_ + 1
+        WHERE ID_ IN (
+            SELECT ID_ FROM (
+                SELECT RES.ID_
+                FROM ${prefix}ACT_RU_JOB RES
+                <where>
+                    <if test="parameter.jobExecutionScope == null">
+                        RES.SCOPE_TYPE_ is null and RES.LOCK_EXP_TIME_ is null
+                    </if>
+                    <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
+                        RES.SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR} and RES.LOCK_EXP_TIME_ is null
+                    </if>
+                    <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope == 'all'">
+                        RES.LOCK_EXP_TIME_ is null
+                    </if>
+                    <if test="parameter.enabledCategories != null">
+                        and RES.CATEGORY_ in
+                        <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
+                            #{category, jdbcType=VARCHAR}
+                        </foreach>
+                    </if>
+                </where>
+                <if test="needsPaging">${limitAfter}</if>
+            ) AS TEMP
+        )
+        <if test="needsPaging">${limitAfter}</if>
+    </update>
+
+    <select id="selectLockedJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
+        SELECT RES.*
+        from ${prefix}ACT_RU_JOB RES
+        WHERE RES.LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR}
+          AND RES.LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP}
+    </select>
     
     <select id="selectExpiredJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
         <if test="needsPaging">${limitBefore}</if>

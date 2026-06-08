@@ -35,6 +35,8 @@ public interface ExternalWorkerJobDataManager extends DataManager<ExternalWorker
 
     List<ExternalWorkerJobEntity> findExternalJobsToExecute(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs);
 
+    List<ExternalWorkerJobEntity> findExternalJobsToExecuteAndLock(ExternalWorkerJobAcquireBuilderImpl builder, int numberOfJobs, String lockOwner, java.util.Date lockExpirationTime);
+
     List<ExternalWorkerJobEntity> findJobsByScopeIdAndSubScopeId(String scopeId, String subScopeId);
     
     List<ExternalWorkerJobEntity> findJobsByWorkerId(String workerId);

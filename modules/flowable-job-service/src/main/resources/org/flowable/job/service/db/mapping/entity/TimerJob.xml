@@ -306,6 +306,44 @@
         <if test="needsPaging">${limitAfter}</if>
     </select>
 
+    <update id="findAndLockTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
+        <if test="needsPaging">${limitBefore}</if>
+        UPDATE ${prefix}ACT_RU_TIMER_JOB
+        SET LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR},
+            LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP},
+            REV_ = REV_ + 1
+        WHERE ID_ in (
+            SELECT ID_ FROM (
+                SELECT RES.ID_
+                FROM ${prefix}ACT_RU_TIMER_JOB RES
+                WHERE 
+                <if test="parameter.jobExecutionScope == null">
+                    RES.SCOPE_TYPE_ is null
+                </if>
+                <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
+                    RES.SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
+                </if>
+                and RES.DUEDATE_ &lt;= #{parameter.now, jdbcType=TIMESTAMP}
+                and RES.LOCK_OWNER_ is null
+                <if test="parameter.enabledCategories != null">
+                    and RES.CATEGORY_ in
+                    <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
+                        #{category, jdbcType=VARCHAR}
+                    </foreach>
+                </if>
+                <if test="needsPaging">${limitAfter}</if>
+            ) AS TEMP
+        )
+        <if test="needsPaging">${limitAfter}</if>
+    </update>
+
+    <select id="selectLockedTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
+        SELECT RES.*
+        from ${prefix}ACT_RU_TIMER_JOB RES
+        WHERE RES.LOCK_OWNER_ = #{parameter.lockOwner, jdbcType=NVARCHAR}
+          AND RES.LOCK_EXP_TIME_ = #{parameter.lockExpirationTime, jdbcType=TIMESTAMP}
+    </select>
+
     <select id="selectExpiredTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
         <if test="needsPaging">${limitBefore}</if>
         SELECT RES.* <if test="needsPaging">${limitBetween}</if>
