@@ -1,0 +1,158 @@
+diff --git a/.github/workflows/db2.yml b/.github/workflows/db2.yml
+index e28630d463..f13ea21b3c 100644
+--- a/.github/workflows/db2.yml
++++ b/.github/workflows/db2.yml
+@@ -1,11 +1,20 @@
+ name: Flowable DB2 Build
+-
+ on:
+   push:
+     branches:
+       - main
+       - 'flowable-release-*'
+-env:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+     -B -V --no-transfer-progress
+diff --git a/.github/workflows/mariadb.yml b/.github/workflows/mariadb.yml
+index e262ed0d40..1168117469 100644
+--- a/.github/workflows/mariadb.yml
++++ b/.github/workflows/mariadb.yml
+@@ -5,7 +5,17 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
+-
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/mysql.yml b/.github/workflows/mysql.yml
+index 8c26d6ad1a..78c37892ec 100644
+--- a/.github/workflows/mysql.yml
++++ b/.github/workflows/mysql.yml
+@@ -1,11 +1,20 @@
+ name: Flowable MySQL Build
+-
+ on:
+   push:
+     branches:
+       - main
+       - 'flowable-release-*'
+-
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/oracle.yml b/.github/workflows/oracle.yml
+index 2884210879..36eede1276 100644
+--- a/.github/workflows/oracle.yml
++++ b/.github/workflows/oracle.yml
+@@ -1,11 +1,20 @@
+ name: Flowable Oracle Build
+-
+ on:
+   push:
+     branches:
+       - main
+       - 'flowable-release-*'
+-env:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+     -B -V --no-transfer-progress
+diff --git a/.github/workflows/postgres.yml b/.github/workflows/postgres.yml
+index 2e1462298a..61b69638f1 100644
+--- a/.github/workflows/postgres.yml
++++ b/.github/workflows/postgres.yml
+@@ -1,11 +1,20 @@
+ name: Flowable Postgres Build
+-
+ on:
+   push:
+     branches:
+       - main
+       - 'flowable-release-*'
+-
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/sql-server.yml b/.github/workflows/sql-server.yml
+index 9044629fb0..dd643fae0c 100644
+--- a/.github/workflows/sql-server.yml
++++ b/.github/workflows/sql-server.yml
+@@ -1,11 +1,20 @@
+ name: Flowable SQL Server Build
+-
+ on:
+   push:
+     branches:
+       - main
+       - 'flowable-release-*'
+-
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++  pull_request:
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true

@@ -1,11 +1,20 @@
 name: Flowable DB2 Build
-
 on:
   push:
     branches:
       - main
       - 'flowable-release-*'
-env:
+    paths-ignore:
+      - 'docs/**'
+      - 'ide-settings/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'pull_request_template.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'ide-settings/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'pull_request_template.md'env:
   MAVEN_ARGS: >-
     -Dmaven.javadoc.skip=true
     -B -V --no-transfer-progress
