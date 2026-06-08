@@ -1,0 +1,112 @@
+diff --git a/.github/workflows/db2.yml b/.github/workflows/db2.yml
+index e28630d463..9ba2db3cd4 100644
+--- a/.github/workflows/db2.yml
++++ b/.github/workflows/db2.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/distro-check.yml b/.github/workflows/distro-check.yml
+index 8ae20a9629..1362ede283 100644
+--- a/.github/workflows/distro-check.yml
++++ b/.github/workflows/distro-check.yml
+@@ -4,6 +4,11 @@ on:
+   push:
+     branches:
+       - main
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/mariadb.yml b/.github/workflows/mariadb.yml
+index e262ed0d40..b759fb5d72 100644
+--- a/.github/workflows/mariadb.yml
++++ b/.github/workflows/mariadb.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/mysql.yml b/.github/workflows/mysql.yml
+index 8c26d6ad1a..bf136f2027 100644
+--- a/.github/workflows/mysql.yml
++++ b/.github/workflows/mysql.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/oracle.yml b/.github/workflows/oracle.yml
+index 2884210879..08cc7c24b1 100644
+--- a/.github/workflows/oracle.yml
++++ b/.github/workflows/oracle.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/postgres.yml b/.github/workflows/postgres.yml
+index 2e1462298a..4ceddf1290 100644
+--- a/.github/workflows/postgres.yml
++++ b/.github/workflows/postgres.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/sql-server.yml b/.github/workflows/sql-server.yml
+index 9044629fb0..3443992b7e 100644
+--- a/.github/workflows/sql-server.yml
++++ b/.github/workflows/sql-server.yml
+@@ -5,6 +5,11 @@ on:
+     branches:
+       - main
+       - 'flowable-release-*'
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
