@@ -1,10 +1,6 @@
 name: Flowable DB2 Build
 
-on:
-  push:
-    branches:
-      - main
-      - 'flowable-release-*'
+on: workflow_call
 env:
   MAVEN_ARGS: >-
     -Dmaven.javadoc.skip=true

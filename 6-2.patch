@@ -1,0 +1,122 @@
+diff --git a/.github/workflows/db2.yml b/.github/workflows/db2.yml
+index e28630d463..ae76f9400b 100644
+--- a/.github/workflows/db2.yml
++++ b/.github/workflows/db2.yml
+@@ -1,10 +1,6 @@
+ name: Flowable DB2 Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/distro-check.yml b/.github/workflows/distro-check.yml
+index 8ae20a9629..ecdf56c45a 100644
+--- a/.github/workflows/distro-check.yml
++++ b/.github/workflows/distro-check.yml
+@@ -4,6 +4,21 @@ on:
+   push:
+     branches:
+       - main
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++      - '.github/pull_request_template.md'
++  pull_request:
++    branches:
++      - main
++    paths-ignore:
++      - 'docs/**'
++      - 'ide-settings/**'
++      - '.github/ISSUE_TEMPLATE/**'
++      - 'pull_request_template.md'
++      - '.github/pull_request_template.md'
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/mariadb.yml b/.github/workflows/mariadb.yml
+index e262ed0d40..0730872b99 100644
+--- a/.github/workflows/mariadb.yml
++++ b/.github/workflows/mariadb.yml
+@@ -1,10 +1,6 @@
+ name: Flowable MariaDB Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/mysql.yml b/.github/workflows/mysql.yml
+index 8c26d6ad1a..dc3e761f24 100644
+--- a/.github/workflows/mysql.yml
++++ b/.github/workflows/mysql.yml
+@@ -1,10 +1,6 @@
+ name: Flowable MySQL Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/oracle.yml b/.github/workflows/oracle.yml
+index 2884210879..1361a950e0 100644
+--- a/.github/workflows/oracle.yml
++++ b/.github/workflows/oracle.yml
+@@ -1,10 +1,6 @@
+ name: Flowable Oracle Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ env:
+   MAVEN_ARGS: >-
+     -Dmaven.javadoc.skip=true
+diff --git a/.github/workflows/postgres.yml b/.github/workflows/postgres.yml
+index 2e1462298a..956d1b8315 100644
+--- a/.github/workflows/postgres.yml
++++ b/.github/workflows/postgres.yml
+@@ -1,10 +1,6 @@
+ name: Flowable Postgres Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ 
+ env:
+   MAVEN_ARGS: >-
+diff --git a/.github/workflows/sql-server.yml b/.github/workflows/sql-server.yml
+index 9044629fb0..96a29c7c40 100644
+--- a/.github/workflows/sql-server.yml
++++ b/.github/workflows/sql-server.yml
+@@ -1,10 +1,6 @@
+ name: Flowable SQL Server Build
+ 
+-on:
+-  push:
+-    branches:
+-      - main
+-      - 'flowable-release-*'
++on: workflow_call
+ 
+ env:
+   MAVEN_ARGS: >-

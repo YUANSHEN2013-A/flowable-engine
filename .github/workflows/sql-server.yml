@@ -1,10 +1,6 @@
 name: Flowable SQL Server Build
 
-on:
-  push:
-    branches:
-      - main
-      - 'flowable-release-*'
+on: workflow_call
 
 env:
   MAVEN_ARGS: >-
