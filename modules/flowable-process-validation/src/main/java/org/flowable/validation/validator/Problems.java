@@ -139,5 +139,11 @@ public interface Problems {
     String DI_INVALID_REFERENCE = "flowable-di-invalid-reference";
     String DI_DOES_NOT_REFERENCE_FLOWNODE = "flowable-di-does-not-reference-flownode";
     String DI_DOES_NOT_REFERENCE_SEQ_FLOW = "flowable-di-does-not-reference-seq-flow";
+    
+    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-missing-element-variable";
+    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-assignee-not-using-element-variable";
+    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-candidate-users-not-using-element-variable";
+    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-candidate-groups-not-using-element-variable";
+    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-collection-and-loopcardinality-conflict";
 
 }
