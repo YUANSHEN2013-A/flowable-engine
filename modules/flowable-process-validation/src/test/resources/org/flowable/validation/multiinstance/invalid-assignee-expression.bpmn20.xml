@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="definition"
+  xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:flowable="http://flowable.org/bpmn"
+  targetNamespace="Examples">
+
+  <process id="invalidAssigneeExpression" isExecutable="true">
+
+    <startEvent id="theStart" />
+    <sequenceFlow id="flow1" sourceRef="theStart" targetRef="miTask" />
+
+    <userTask id="miTask" name="Invalid Assignee Task" flowable:assignee="${otherVar}">
+      <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="userList" flowable:elementVariable="user">
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+
+    <sequenceFlow id="flow2" sourceRef="miTask" targetRef="theEnd" />
+    <endEvent id="theEnd" />
+
+  </process>
+
+</definitions>

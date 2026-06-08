@@ -1,0 +1,66 @@
+diff --git a/modules/flowable-process-validation/pom.xml b/modules/flowable-process-validation/pom.xml
+index a13d1f6267..b9f8e65161 100644
+--- a/modules/flowable-process-validation/pom.xml
++++ b/modules/flowable-process-validation/pom.xml
+@@ -36,6 +36,16 @@
+ 			<groupId>org.flowable</groupId>
+ 			<artifactId>flowable-bpmn-model</artifactId>
+ 		</dependency>
++		<dependency>
++			<groupId>org.junit.jupiter</groupId>
++			<artifactId>junit-jupiter</artifactId>
++			<scope>test</scope>
++		</dependency>
++		<dependency>
++			<groupId>org.assertj</groupId>
++			<artifactId>assertj-core</artifactId>
++			<scope>test</scope>
++		</dependency>
+ 	</dependencies>
+ 
+ </project>
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+index 1da8cb6dd0..1af7fb6ae3 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/Problems.java
+@@ -109,6 +109,12 @@ public interface Problems {
+ 
+     String MULTI_INSTANCE_MISSING_COLLECTION = "flowable-multi-instance-missing-collection";
+     String MULTI_INSTANCE_MISSING_COLLECTION_FUNCTION_PARAMETERS = "flowable-multi-instance-missing-collection-parser";
++
++    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-missing-element-variable";
++    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-assignee-not-using-element-variable";
++    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-users-not-using-element-variable";
++    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-groups-not-using-element-variable";
++    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-collection-loopcardinality-conflict";
+     
+     String MESSAGE_MISSING_NAME = "flowable-message-missing-name";
+     String MESSAGE_INVALID_ITEM_REF = "flowable-message-invalid-item-ref";
+diff --git a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+index 544836c3c3..6831eb58bf 100644
+--- a/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
++++ b/modules/flowable-process-validation/src/main/java/org/flowable/validation/validator/ValidatorSetFactory.java
+@@ -29,6 +29,11 @@ import org.flowable.validation.validator.impl.FlowableEventListenerValidator;
+ import org.flowable.validation.validator.impl.IntermediateCatchEventValidator;
+ import org.flowable.validation.validator.impl.IntermediateThrowEventValidator;
+ import org.flowable.validation.validator.impl.MessageValidator;
++import org.flowable.validation.validator.impl.MultiInstanceAssigneeValidator;
++import org.flowable.validation.validator.impl.MultiInstanceCandidateGroupsValidator;
++import org.flowable.validation.validator.impl.MultiInstanceCandidateUsersValidator;
++import org.flowable.validation.validator.impl.MultiInstanceCollectionElementVariableValidator;
++import org.flowable.validation.validator.impl.MultiInstanceCollectionLoopCardinalityConflictValidator;
+ import org.flowable.validation.validator.impl.OperationValidator;
+ import org.flowable.validation.validator.impl.ScriptTaskValidator;
+ import org.flowable.validation.validator.impl.SendTaskValidator;
+@@ -59,6 +64,11 @@ public class ValidatorSetFactory {
+         validatorSet.addValidator(new StartEventValidator());
+         validatorSet.addValidator(new SequenceflowValidator());
+         validatorSet.addValidator(new UserTaskValidator());
++        validatorSet.addValidator(new MultiInstanceCollectionElementVariableValidator());
++        validatorSet.addValidator(new MultiInstanceAssigneeValidator());
++        validatorSet.addValidator(new MultiInstanceCandidateUsersValidator());
++        validatorSet.addValidator(new MultiInstanceCandidateGroupsValidator());
++        validatorSet.addValidator(new MultiInstanceCollectionLoopCardinalityConflictValidator());
+         validatorSet.addValidator(new ServiceTaskValidator());
+         validatorSet.addValidator(new ScriptTaskValidator());
+         validatorSet.addValidator(new SendTaskValidator());

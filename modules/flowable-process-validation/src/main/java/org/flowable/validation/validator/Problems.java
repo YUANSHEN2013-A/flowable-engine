@@ -109,6 +109,12 @@ public interface Problems {
 
     String MULTI_INSTANCE_MISSING_COLLECTION = "flowable-multi-instance-missing-collection";
     String MULTI_INSTANCE_MISSING_COLLECTION_FUNCTION_PARAMETERS = "flowable-multi-instance-missing-collection-parser";
+
+    String MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-missing-element-variable";
+    String ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-assignee-not-using-element-variable";
+    String CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-users-not-using-element-variable";
+    String CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-candidate-groups-not-using-element-variable";
+    String COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-collection-loopcardinality-conflict";
     
     String MESSAGE_MISSING_NAME = "flowable-message-missing-name";
     String MESSAGE_INVALID_ITEM_REF = "flowable-message-invalid-item-ref";
