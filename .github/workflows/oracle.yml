@@ -5,6 +5,11 @@ on:
     branches:
       - main
       - 'flowable-release-*'
+    paths-ignore:
+      - 'docs/**'
+      - 'ide-settings/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'pull_request_template.md'
 env:
   MAVEN_ARGS: >-
     -Dmaven.javadoc.skip=true
