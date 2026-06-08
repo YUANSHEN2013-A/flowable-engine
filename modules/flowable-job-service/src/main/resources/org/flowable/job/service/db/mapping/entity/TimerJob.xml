@@ -4,13 +4,9 @@
 
 <mapper namespace="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
 
-    <!-- TIMER JOB RESULTMAP -->
-
-    <resultMap id="jobResultMap" type="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
+    <resultMap id="timerJobResultMap" type="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
         <id property="id" column="ID_" jdbcType="NVARCHAR" />
         <result property="revision" column="REV_" jdbcType="INTEGER" />
-        <result property="category" column="CATEGORY_" jdbcType="VARCHAR" />
-        <result property="jobType" column="TYPE_" jdbcType="NVARCHAR" />
         <result property="lockOwner" column="LOCK_OWNER_" jdbcType="NVARCHAR" />
         <result property="lockExpirationTime" column="LOCK_EXP_TIME_" jdbcType="TIMESTAMP" />
         <result property="exclusive" column="EXCLUSIVE_" jdbcType="BOOLEAN" />
@@ -19,36 +15,98 @@
         <result property="processDefinitionId" column="PROC_DEF_ID_" jdbcType="NVARCHAR" />
         <result property="elementId" column="ELEMENT_ID_" jdbcType="NVARCHAR" />
         <result property="elementName" column="ELEMENT_NAME_" jdbcType="NVARCHAR" />
-        <result property="scopeId" column="SCOPE_ID_" jdbcType="NVARCHAR"/>
-        <result property="subScopeId" column="SUB_SCOPE_ID_" jdbcType="NVARCHAR"/>
-        <result property="scopeType" column="SCOPE_TYPE_" jdbcType="NVARCHAR"/>
-        <result property="scopeDefinitionId" column="SCOPE_DEFINITION_ID_" jdbcType="NVARCHAR"/>
-        <result property="correlationId" column="CORRELATION_ID_" jdbcType="NVARCHAR"/>
+        <result property="scopeId" column="SCOPE_ID_" jdbcType="NVARCHAR" />
+        <result property="subScopeId" column="SUB_SCOPE_ID_" jdbcType="NVARCHAR" />
+        <result property="scopeType" column="SCOPE_TYPE_" jdbcType="NVARCHAR" />
+        <result property="scopeDefinitionId" column="SCOPE_DEFINITION_ID_" jdbcType="NVARCHAR" />
+        <result property="correlationId" column="CORRELATION_ID_" jdbcType="NVARCHAR" />
         <result property="retries" column="RETRIES_" jdbcType="INTEGER" />
         <result property="exceptionByteArrayRef" column="EXCEPTION_STACK_ID_" typeHandler="JobByteArrayRefTypeHandler" />
         <result property="exceptionMessage" column="EXCEPTION_MSG_" jdbcType="NVARCHAR" />
+        <result property="duedate" column="DUEDATE_" jdbcType="TIMESTAMP" />
+        <result property="repeat" column="REPEAT_" jdbcType="NVARCHAR" />
+        <result property="repeatOffset" column="REPEAT_OFFSET_" jdbcType="INTEGER" />
+        <result property="endDate" column="END_DATE_" jdbcType="TIMESTAMP" />
+        <result property="fireTime" column="FIRE_TIME_" jdbcType="TIMESTAMP" />
         <result property="jobHandlerType" column="HANDLER_TYPE_" jdbcType="NVARCHAR" />
         <result property="jobHandlerConfiguration" column="HANDLER_CFG_" jdbcType="NVARCHAR" />
         <result property="customValuesByteArrayRef" column="CUSTOM_VALUES_ID_" typeHandler="JobByteArrayRefTypeHandler" />
         <result property="createTime" column="CREATE_TIME_" jdbcType="TIMESTAMP" />
         <result property="tenantId" column="TENANT_ID_" jdbcType="NVARCHAR" />
-        <result property="duedate" column="DUEDATE_" jdbcType="TIMESTAMP" />
-        <result property="repeat" column="REPEAT_" jdbcType="NVARCHAR" />
+        <result property="category" column="CATEGORY_" jdbcType="VARCHAR" />
     </resultMap>
 
-    <!-- TIMER JOB SELECT -->
-
-    <select id="selectTimerJob" parameterType="string" resultMap="jobResultMap">
+    <select id="selectTimerJob" parameterType="string" resultMap="timerJobResultMap">
         select * from ${prefix}ACT_RU_TIMER_JOB where ID_ = #{id, jdbcType=NVARCHAR}
     </select>
 
-    <select id="selectTimerJobByCorrelationId" parameterType="string" resultMap="jobResultMap">
-        select *
-        from ${prefix}ACT_RU_TIMER_JOB
-        where CORRELATION_ID_ = #{correlationId, jdbcType=NVARCHAR}
+    <select id="selectExpiredTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        <if test="needsPaging">${limitBefore}</if>
+        SELECT RES.* <if test="needsPaging">${limitBetween}</if>
+        from ${prefix}ACT_RU_TIMER_JOB RES
+        <where>
+            <if test="parameter.jobExecutionScope == null">
+                SCOPE_TYPE_ is null
+            </if>
+            <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
+                SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
+            </if>
+            and DUEDATE_ &lt;= #{parameter.now, jdbcType=TIMESTAMP}
+            and (LOCK_EXP_TIME_ is not null and LOCK_EXP_TIME_ &lt; #{parameter.now, jdbcType=TIMESTAMP})
+            <if test="parameter.enabledCategories != null">
+                and CATEGORY_ in
+                <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
+                    #{category, jdbcType=VARCHAR}
+                </foreach>
+            </if>
+        </where>
+        <if test="needsPaging">${limitAfter}</if>
     </select>
 
-    <select id="selectTimerJobByQueryCriteria" parameterType="org.flowable.job.service.impl.TimerJobQueryImpl" resultMap="jobResultMap">
+    <select id="selectTimerJobsToExecute" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        <if test="needsPaging">${limitBefore}</if>
+        SELECT RES.* <if test="needsPaging">${limitBetween}</if>
+        from ${prefix}ACT_RU_TIMER_JOB RES
+        <where>
+            <if test="parameter.jobExecutionScope == null">
+                SCOPE_TYPE_ is null
+            </if>
+            <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
+                SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
+            </if>
+            and DUEDATE_ &lt;= #{parameter.now, jdbcType=TIMESTAMP}
+            and LOCK_OWNER_ is null
+            and LOCK_EXP_TIME_ is null
+            <if test="parameter.enabledCategories != null">
+                and CATEGORY_ in
+                <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
+                    #{category, jdbcType=VARCHAR}
+                </foreach>
+            </if>
+        </where>
+        <if test="needsPaging">${limitAfter}</if>
+    </select>
+
+    <select id="selectTimerJobsByExecutionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select *
+        from ${prefix}ACT_RU_TIMER_JOB TJ
+        where TJ.EXECUTION_ID_ = #{parameter, jdbcType=NVARCHAR}
+    </select>
+
+    <select id="selectTimerJobsByProcessInstanceId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select *
+        from ${prefix}ACT_RU_TIMER_JOB TJ
+        where TJ.PROCESS_INSTANCE_ID_ = #{parameter, jdbcType=NVARCHAR}
+    </select>
+
+    <select id="selectTimerJobsByScopeIdAndSubScopeId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select *
+        from ${prefix}ACT_RU_TIMER_JOB TJ
+        where TJ.SCOPE_ID_ = #{parameter.scopeId, jdbcType=NVARCHAR}
+        and TJ.SUB_SCOPE_ID_ = #{parameter.subScopeId, jdbcType=NVARCHAR}
+    </select>
+
+    <select id="selectTimerJobByQueryCriteria" parameterType="org.flowable.job.service.impl.TimerJobQueryImpl" resultMap="timerJobResultMap">
         <if test="needsPaging">${limitBefore}</if>
         SELECT RES.* <if test="needsPaging">${limitBetween}</if>
         <include refid="selectTimerJobByQueryCriteriaSql" />
@@ -125,19 +183,10 @@
                 and RES.SCOPE_DEFINITION_ID_ = #{scopeDefinitionId, jdbcType=NVARCHAR}
             </if>
             <if test="caseDefinitionKey != null">
-                and RES.SCOPE_DEFINITION_ID_ IN (select DEF.ID_ from ${prefix}ACT_CMMN_CASEDEF DEF where DEF.KEY_ = #{caseDefinitionKey, jdbcType=VARCHAR})
+                and RES.SCOPE_DEFINITION_ID_ IN (select DEF.ID_ from ${prefix}ACT_CMMN_CASEDEF DEF where DEF.KEY_ = #{caseDefinitionKey, jdbcType=NVARCHAR})
             </if>
             <if test="correlationId != null">
                 and RES.CORRELATION_ID_ = #{correlationId, jdbcType=NVARCHAR}
-            </if>
-            <if test="onlyTimers">
-                and RES.TYPE_ = 'timer'
-            </if>
-            <if test="onlyMessages">
-                and RES.TYPE_ = 'message'
-            </if>
-            <if test="executable">
-                and RES.DUEDATE_ &lt;= #{now, jdbcType=TIMESTAMP}
             </if>
             <if test="duedateHigherThan != null">
                 and RES.DUEDATE_ &gt; #{duedateHigherThan, jdbcType=TIMESTAMP}
@@ -156,6 +205,15 @@
             </if>
             <if test="exceptionMessage">
                 and RES.EXCEPTION_MSG_ = #{exceptionMessage, jdbcType=NVARCHAR}
+            </if>
+            <if test="lockOwner != null">
+                and RES.LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR}
+            </if>
+            <if test="onlyLocked">
+                and RES.LOCK_EXP_TIME_ is not null
+            </if>
+            <if test="onlyUnlocked">
+                and RES.LOCK_EXP_TIME_ is null
             </if>
             <if test="tenantId != null">
                 and RES.TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
@@ -234,19 +292,10 @@
                             or RES.SCOPE_DEFINITION_ID_ = #{orQueryObject.scopeDefinitionId, jdbcType=NVARCHAR}
                         </if>
                         <if test="orQueryObject.caseDefinitionKey != null">
-                            or RES.SCOPE_DEFINITION_ID_ IN (select DEF.ID_ from ${prefix}ACT_CMMN_CASEDEF DEF where DEF.KEY_ = #{orQueryObject.caseDefinitionKey, jdbcType=VARCHAR})
+                            or RES.SCOPE_DEFINITION_ID_ IN (select DEF.ID_ from ${prefix}ACT_CMMN_CASEDEF DEF where DEF.KEY_ = #{orQueryObject.caseDefinitionKey, jdbcType=NVARCHAR})
                         </if>
                         <if test="orQueryObject.correlationId != null">
                             or RES.CORRELATION_ID_ = #{orQueryObject.correlationId, jdbcType=NVARCHAR}
-                        </if>
-                        <if test="orQueryObject.executable">
-                            or RES.DUEDATE_ &lt;= #{orQueryObject.now, jdbcType=TIMESTAMP}
-                        </if>
-                        <if test="orQueryObject.onlyTimers">
-                            or RES.TYPE_ = 'timer'
-                        </if>
-                        <if test="orQueryObject.onlyMessages">
-                            or RES.TYPE_ = 'message'
                         </if>
                         <if test="orQueryObject.duedateHigherThan != null">
                             or RES.DUEDATE_ &gt; #{orQueryObject.duedateHigherThan, jdbcType=TIMESTAMP}
@@ -266,6 +315,15 @@
                         <if test="orQueryObject.exceptionMessage">
                             or RES.EXCEPTION_MSG_ = #{orQueryObject.exceptionMessage, jdbcType=NVARCHAR}
                         </if>
+                        <if test="orQueryObject.lockOwner != null">
+                            or RES.LOCK_OWNER_ = #{orQueryObject.lockOwner, jdbcType=NVARCHAR}
+                        </if>
+                        <if test="orQueryObject.onlyLocked">
+                            or RES.LOCK_EXP_TIME_ is not null
+                        </if>
+                        <if test="orQueryObject.onlyUnlocked">
+                            or RES.LOCK_EXP_TIME_ is null
+                        </if>
                         <if test="orQueryObject.tenantId != null">
                             or RES.TENANT_ID_ = #{orQueryObject.tenantId, jdbcType=NVARCHAR}
                         </if>
@@ -284,181 +342,107 @@
         </where>
     </sql>
 
-    <select id="selectTimerJobsToExecute" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        <if test="needsPaging">${limitBefore}</if>
-        SELECT RES.* <if test="needsPaging">${limitBetween}</if>
-        from ${prefix}ACT_RU_TIMER_JOB RES
-        where 
-        <if test="parameter.jobExecutionScope == null">
-            SCOPE_TYPE_ is null
-        </if>
-        <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
-            SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
-        </if>
-        and DUEDATE_ &lt;= #{parameter.now, jdbcType=TIMESTAMP}
+    <select id="selectTimerJobByCorrelationId" parameterType="string" resultMap="timerJobResultMap">
+        select *
+        from ${prefix}ACT_RU_TIMER_JOB
+        where CORRELATION_ID_ = #{correlationId, jdbcType=NVARCHAR}
+    </select>
+
+    <select id="selectTimerJobByTypeAndProcessDefinitionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select * from ${prefix}ACT_RU_TIMER_JOB
+        where HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
+        and PROC_DEF_ID_ = #{parameter.processDefinitionId, jdbcType=NVARCHAR}
+    </select>
+
+    <select id="selectTimerJobByTypeAndProcessDefinitionKeyNoTenantId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select * from ${prefix}ACT_RU_TIMER_JOB
+        where HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
+        and PROC_DEF_ID_ in (select ID_ from ${prefix}ACT_RE_PROCDEF where KEY_ = #{parameter.processDefinitionKey, jdbcType=NVARCHAR} and TENANT_ID_ = '')
+    </select>
+
+    <select id="selectTimerJobByTypeAndProcessDefinitionKeyAndTenantId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="timerJobResultMap">
+        select * from ${prefix}ACT_RU_TIMER_JOB
+        where HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
+        and PROC_DEF_ID_ in (select ID_ from ${prefix}ACT_RE_PROCDEF where KEY_ = #{parameter.processDefinitionKey, jdbcType=NVARCHAR} and TENANT_ID_ = #{parameter.tenantId, jdbcType=NVARCHAR})
+    </select>
+
+    <delete id="deleteTimerJob" parameterType="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
+        delete from ${prefix}ACT_RU_TIMER_JOB where ID_ = #{id, jdbcType=NVARCHAR} and REV_ = #{revision, jdbcType=INTEGER}
+    </delete>
+
+    <delete id="deleteTimerJobs" parameterType="java.util.Collection">
+        delete from ${prefix}ACT_RU_TIMER_JOB where ID_ in
+        <foreach item="job" index="index" collection="collection" open="(" separator="," close=")">
+            #{job.id, jdbcType=NVARCHAR}
+        </foreach>
+    </delete>
+
+    <delete id="deleteTimerJobsByExecutionId" parameterType="string">
+        delete from ${prefix}ACT_RU_TIMER_JOB where EXECUTION_ID_ = #{id, jdbcType=NVARCHAR}
+    </delete>
+
+    <update id="updateTimerJobTenantIdForDeployment" parameterType="java.util.Map">
+        update ${prefix}ACT_RU_TIMER_JOB set
+        TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
+        where
+        ID_ in (
+            SELECT J.ID_ from ${prefix}ACT_RU_TIMER_JOB J
+            inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
+            inner join ${prefix}ACT_RE_DEPLOYMENT D on P.DEPLOYMENT_ID_ = D.ID_
+            where D.ID_ = #{deploymentId, jdbcType=NVARCHAR}
+        )
+    </update>
+
+    <update id="updateTimerJobTenantIdForDeployment" databaseId="mysql" parameterType="java.util.Map">
+        update ${prefix}ACT_RU_TIMER_JOB set
+        TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
+        where
+        ID_ in (
+            SELECT tempTask.tempId
+            FROM (
+                SELECT J.ID_ as tempId
+                FROM ${prefix}ACT_RU_TIMER_JOB J
+                inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
+                inner join ${prefix}ACT_RE_DEPLOYMENT D on P.DEPLOYMENT_ID_ = D.ID_
+                where D.ID_ = #{deploymentId, jdbcType=NVARCHAR}
+            ) AS tempTask
+        )
+    </update>
+
+    <update id="updateTimerJobLocks" parameterType="java.util.Map">
+        update ${prefix}ACT_RU_TIMER_JOB set LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR}, LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP}
+        where ID_ in
+        <foreach item="timerJob" index="index" collection="timerJobs" open="(" separator="," close=")">
+            #{timerJob.id, jdbcType=NVARCHAR}
+        </foreach>
+    </update>
+
+    <update id="lockTimerJobIfNeeded" parameterType="java.util.Map">
+        update ${prefix}ACT_RU_TIMER_JOB
+        set LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR},
+            LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP},
+            REV_ = #{nextRevision, jdbcType=INTEGER}
+        where ID_ = #{id, jdbcType=NVARCHAR}
+        and REV_ = #{revision, jdbcType=INTEGER}
         and LOCK_OWNER_ is null
-        <if test="parameter.enabledCategories != null">
-            and CATEGORY_ in
-            <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
-                #{category, jdbcType=VARCHAR}
-            </foreach>
-        </if>
-        <if test="needsPaging">${limitAfter}</if>
-    </select>
-
-    <select id="selectExpiredTimerJobs" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        <if test="needsPaging">${limitBefore}</if>
-        SELECT RES.* <if test="needsPaging">${limitBetween}</if>
-        from ${prefix}ACT_RU_TIMER_JOB RES
-        <where>
-            <if test="parameter.jobExecutionScope == null">
-                SCOPE_TYPE_ is null
-            </if>
-            <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
-                SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR}
-            </if>
-            and LOCK_EXP_TIME_ is not null and LOCK_EXP_TIME_ &lt; #{parameter.now, jdbcType=TIMESTAMP}
-
-            <if test="parameter.enabledCategories">
-                and CATEGORY_ in
-                <foreach item="category" index="index" collection="parameter.enabledCategories" open="(" separator="," close=")">
-                    #{category, jdbcType=VARCHAR}
-                </foreach>
-            </if>
-        </where>
-        <if test="needsPaging">${limitAfter}</if>
-    </select>
-
-    <!-- TIMER INSERT -->
+        and LOCK_EXP_TIME_ is null
+    </update>
 
     <insert id="insertTimerJob" parameterType="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
         insert into ${prefix}ACT_RU_TIMER_JOB (
-        ID_,
-        REV_,
-        CATEGORY_,
-        TYPE_,
-        EXCLUSIVE_,
-        EXECUTION_ID_,
-        PROCESS_INSTANCE_ID_,
-        PROC_DEF_ID_,
-        ELEMENT_ID_,
-        ELEMENT_NAME_,
-        SCOPE_ID_, 
-        SUB_SCOPE_ID_, 
-        SCOPE_TYPE_, 
-        SCOPE_DEFINITION_ID_,
-        CORRELATION_ID_,
-        RETRIES_,
-        EXCEPTION_STACK_ID_,
-        EXCEPTION_MSG_,
-        DUEDATE_,
-        REPEAT_,
-        HANDLER_TYPE_,
-        HANDLER_CFG_,
-        CUSTOM_VALUES_ID_,
-        CREATE_TIME_,
-        TENANT_ID_)
-        values (#{id, jdbcType=NVARCHAR},
-        #{revision, jdbcType=INTEGER},
-        #{category, jdbcType=VARCHAR},
-        #{jobType, jdbcType=NVARCHAR},
-        #{exclusive, jdbcType=BOOLEAN},
-        #{executionId, jdbcType=NVARCHAR},
-        #{processInstanceId, jdbcType=NVARCHAR},
-        #{processDefinitionId, jdbcType=NVARCHAR},
-        #{elementId, jdbcType=NVARCHAR},
-        #{elementName, jdbcType=NVARCHAR},
-        #{scopeId, jdbcType=NVARCHAR},
-        #{subScopeId, jdbcType=NVARCHAR},
-        #{scopeType, jdbcType=NVARCHAR},
-        #{scopeDefinitionId, jdbcType=NVARCHAR},
-        #{correlationId, jdbcType=NVARCHAR},
-        #{retries, jdbcType=INTEGER},
-        #{exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-        #{exceptionMessage, jdbcType=NVARCHAR},
-        #{duedate, jdbcType=TIMESTAMP},
-        #{repeat, jdbcType=NVARCHAR},
-        #{jobHandlerType, jdbcType=NVARCHAR},
-        #{jobHandlerConfiguration, jdbcType=NVARCHAR},
-        #{customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-        #{createTime, jdbcType=TIMESTAMP},
-        #{tenantId, jdbcType=NVARCHAR}
-        )
-    </insert>
-
-    <insert id="bulkInsertTimerJob" parameterType="java.util.List">
-        INSERT INTO ${prefix}ACT_RU_TIMER_JOB (
-        ID_,
-        REV_,
-        CATEGORY_,
-        TYPE_,
-        EXCLUSIVE_,
-        EXECUTION_ID_,
-        PROCESS_INSTANCE_ID_,
-        PROC_DEF_ID_,
-        ELEMENT_ID_,
-        ELEMENT_NAME_,
-        SCOPE_ID_, 
-        SUB_SCOPE_ID_, 
-        SCOPE_TYPE_, 
-        SCOPE_DEFINITION_ID_,
-        CORRELATION_ID_,
-        RETRIES_,
-        EXCEPTION_STACK_ID_,
-        EXCEPTION_MSG_,
-        DUEDATE_,
-        REPEAT_,
-        HANDLER_TYPE_,
-        HANDLER_CFG_,
-        CUSTOM_VALUES_ID_,
-        CREATE_TIME_,
-        TENANT_ID_) VALUES
-        <foreach collection="list" item="timerJob" index="index" separator=",">
-            (#{timerJob.id, jdbcType=NVARCHAR},
-            #{timerJob.revision, jdbcType=INTEGER},
-            #{timerJob.category, jdbcType=VARCHAR},
-            #{timerJob.jobType, jdbcType=NVARCHAR},
-            #{timerJob.exclusive, jdbcType=BOOLEAN},
-            #{timerJob.executionId, jdbcType=NVARCHAR},
-            #{timerJob.processInstanceId, jdbcType=NVARCHAR},
-            #{timerJob.processDefinitionId, jdbcType=NVARCHAR},
-            #{timerJob.elementId, jdbcType=NVARCHAR},
-            #{timerJob.elementName, jdbcType=NVARCHAR},
-            #{timerJob.scopeId, jdbcType=NVARCHAR},
-            #{timerJob.subScopeId, jdbcType=NVARCHAR},
-            #{timerJob.scopeType, jdbcType=NVARCHAR},
-            #{timerJob.scopeDefinitionId, jdbcType=NVARCHAR},
-            #{timerJob.correlationId, jdbcType=NVARCHAR},
-            #{timerJob.retries, jdbcType=INTEGER},
-            #{timerJob.exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-            #{timerJob.exceptionMessage, jdbcType=NVARCHAR},
-            #{timerJob.duedate, jdbcType=TIMESTAMP},
-            #{timerJob.repeat, jdbcType=NVARCHAR},
-            #{timerJob.jobHandlerType, jdbcType=NVARCHAR},
-            #{timerJob.jobHandlerConfiguration, jdbcType=NVARCHAR},
-            #{timerJob.customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-            #{timerJob.createTime, jdbcType=TIMESTAMP},
-            #{timerJob.tenantId, jdbcType=NVARCHAR})
-        </foreach>
-    </insert>
-
-    <insert id="bulkInsertTimerJob" databaseId="oracle" parameterType="java.util.List">
-        INSERT ALL
-        <foreach collection="list" item="timerJob" index="index">
-            INTO ${prefix}ACT_RU_TIMER_JOB (
             ID_,
             REV_,
-            CATEGORY_,
-            TYPE_,
+            LOCK_OWNER_,
+            LOCK_EXP_TIME_,
             EXCLUSIVE_,
             EXECUTION_ID_,
             PROCESS_INSTANCE_ID_,
             PROC_DEF_ID_,
             ELEMENT_ID_,
             ELEMENT_NAME_,
-            SCOPE_ID_, 
-            SUB_SCOPE_ID_, 
-            SCOPE_TYPE_, 
+            SCOPE_ID_,
+            SUB_SCOPE_ID_,
+            SCOPE_TYPE_,
             SCOPE_DEFINITION_ID_,
             CORRELATION_ID_,
             RETRIES_,
@@ -466,36 +450,175 @@
             EXCEPTION_MSG_,
             DUEDATE_,
             REPEAT_,
+            REPEAT_OFFSET_,
+            END_DATE_,
+            FIRE_TIME_,
             HANDLER_TYPE_,
             HANDLER_CFG_,
             CUSTOM_VALUES_ID_,
             CREATE_TIME_,
-            TENANT_ID_) VALUES
-            (#{timerJob.id, jdbcType=NVARCHAR},
-            #{timerJob.revision, jdbcType=INTEGER},
-            #{timerJob.category, jdbcType=VARCHAR},
-            #{timerJob.jobType, jdbcType=NVARCHAR},
-            #{timerJob.exclusive, jdbcType=BOOLEAN},
-            #{timerJob.executionId, jdbcType=NVARCHAR},
-            #{timerJob.processInstanceId, jdbcType=NVARCHAR},
-            #{timerJob.processDefinitionId, jdbcType=NVARCHAR},
-            #{timerJob.elementId, jdbcType=NVARCHAR},
-            #{timerJob.elementName, jdbcType=NVARCHAR},
-            #{timerJob.scopeId, jdbcType=NVARCHAR},
-            #{timerJob.subScopeId, jdbcType=NVARCHAR},
-            #{timerJob.scopeType, jdbcType=NVARCHAR},
-            #{timerJob.scopeDefinitionId, jdbcType=NVARCHAR},
-            #{timerJob.correlationId, jdbcType=NVARCHAR},
-            #{timerJob.retries, jdbcType=INTEGER},
-            #{timerJob.exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-            #{timerJob.exceptionMessage, jdbcType=NVARCHAR},
-            #{timerJob.duedate, jdbcType=TIMESTAMP},
-            #{timerJob.repeat, jdbcType=NVARCHAR},
-            #{timerJob.jobHandlerType, jdbcType=NVARCHAR},
-            #{timerJob.jobHandlerConfiguration, jdbcType=NVARCHAR},
-            #{timerJob.customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
-            #{timerJob.createTime, jdbcType=TIMESTAMP},
-            #{timerJob.tenantId, jdbcType=NVARCHAR})
+            TENANT_ID_,
+            CATEGORY_)
+        values (
+            #{id, jdbcType=NVARCHAR},
+            #{revision, jdbcType=INTEGER},
+            #{lockOwner, jdbcType=NVARCHAR},
+            #{lockExpirationTime, jdbcType=TIMESTAMP},
+            #{exclusive, jdbcType=BOOLEAN},
+            #{executionId, jdbcType=NVARCHAR},
+            #{processInstanceId, jdbcType=NVARCHAR},
+            #{processDefinitionId, jdbcType=NVARCHAR},
+            #{elementId, jdbcType=NVARCHAR},
+            #{elementName, jdbcType=NVARCHAR},
+            #{scopeId, jdbcType=NVARCHAR},
+            #{subScopeId, jdbcType=NVARCHAR},
+            #{scopeType, jdbcType=NVARCHAR},
+            #{scopeDefinitionId, jdbcType=NVARCHAR},
+            #{correlationId, jdbcType=NVARCHAR},
+            #{retries, jdbcType=INTEGER},
+            #{exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+            #{exceptionMessage, jdbcType=NVARCHAR},
+            #{duedate, jdbcType=TIMESTAMP},
+            #{repeat, jdbcType=NVARCHAR},
+            #{repeatOffset, jdbcType=INTEGER},
+            #{endDate, jdbcType=TIMESTAMP},
+            #{fireTime, jdbcType=TIMESTAMP},
+            #{jobHandlerType, jdbcType=NVARCHAR},
+            #{jobHandlerConfiguration, jdbcType=NVARCHAR},
+            #{customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+            #{createTime, jdbcType=TIMESTAMP},
+            #{tenantId, jdbcType=NVARCHAR},
+            #{category, jdbcType=VARCHAR})
+    </insert>
+
+    <insert id="bulkInsertTimerJob" parameterType="java.util.List">
+        INSERT INTO ${prefix}ACT_RU_TIMER_JOB (
+            ID_,
+            REV_,
+            LOCK_OWNER_,
+            LOCK_EXP_TIME_,
+            EXCLUSIVE_,
+            EXECUTION_ID_,
+            PROCESS_INSTANCE_ID_,
+            PROC_DEF_ID_,
+            ELEMENT_ID_,
+            ELEMENT_NAME_,
+            SCOPE_ID_,
+            SUB_SCOPE_ID_,
+            SCOPE_TYPE_,
+            SCOPE_DEFINITION_ID_,
+            CORRELATION_ID_,
+            RETRIES_,
+            EXCEPTION_STACK_ID_,
+            EXCEPTION_MSG_,
+            DUEDATE_,
+            REPEAT_,
+            REPEAT_OFFSET_,
+            END_DATE_,
+            FIRE_TIME_,
+            HANDLER_TYPE_,
+            HANDLER_CFG_,
+            CUSTOM_VALUES_ID_,
+            CREATE_TIME_,
+            TENANT_ID_,
+            CATEGORY_) VALUES
+        <foreach collection="list" item="timerJob" index="index" separator=",">
+            (
+                #{timerJob.id, jdbcType=NVARCHAR},
+                #{timerJob.revision, jdbcType=INTEGER},
+                #{timerJob.lockOwner, jdbcType=NVARCHAR},
+                #{timerJob.lockExpirationTime, jdbcType=TIMESTAMP},
+                #{timerJob.exclusive, jdbcType=BOOLEAN},
+                #{timerJob.executionId, jdbcType=NVARCHAR},
+                #{timerJob.processInstanceId, jdbcType=NVARCHAR},
+                #{timerJob.processDefinitionId, jdbcType=NVARCHAR},
+                #{timerJob.elementId, jdbcType=NVARCHAR},
+                #{timerJob.elementName, jdbcType=NVARCHAR},
+                #{timerJob.scopeId, jdbcType=NVARCHAR},
+                #{timerJob.subScopeId, jdbcType=NVARCHAR},
+                #{timerJob.scopeType, jdbcType=NVARCHAR},
+                #{timerJob.scopeDefinitionId, jdbcType=NVARCHAR},
+                #{timerJob.correlationId, jdbcType=NVARCHAR},
+                #{timerJob.retries, jdbcType=INTEGER},
+                #{timerJob.exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+                #{timerJob.exceptionMessage, jdbcType=NVARCHAR},
+                #{timerJob.duedate, jdbcType=TIMESTAMP},
+                #{timerJob.repeat, jdbcType=NVARCHAR},
+                #{timerJob.repeatOffset, jdbcType=INTEGER},
+                #{timerJob.endDate, jdbcType=TIMESTAMP},
+                #{timerJob.fireTime, jdbcType=TIMESTAMP},
+                #{timerJob.jobHandlerType, jdbcType=NVARCHAR},
+                #{timerJob.jobHandlerConfiguration, jdbcType=NVARCHAR},
+                #{timerJob.customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+                #{timerJob.createTime, jdbcType=TIMESTAMP},
+                #{timerJob.tenantId, jdbcType=NVARCHAR},
+                #{timerJob.category, jdbcType=VARCHAR})
+        </foreach>
+    </insert>
+
+    <insert id="bulkInsertTimerJob" databaseId="oracle" parameterType="java.util.List">
+        INSERT ALL
+        <foreach collection="list" item="timerJob" index="index">
+            INTO ${prefix}ACT_RU_TIMER_JOB (
+                ID_,
+                REV_,
+                LOCK_OWNER_,
+                LOCK_EXP_TIME_,
+                EXCLUSIVE_,
+                EXECUTION_ID_,
+                PROCESS_INSTANCE_ID_,
+                PROC_DEF_ID_,
+                ELEMENT_ID_,
+                ELEMENT_NAME_,
+                SCOPE_ID_,
+                SUB_SCOPE_ID_,
+                SCOPE_TYPE_,
+                SCOPE_DEFINITION_ID_,
+                CORRELATION_ID_,
+                RETRIES_,
+                EXCEPTION_STACK_ID_,
+                EXCEPTION_MSG_,
+                DUEDATE_,
+                REPEAT_,
+                REPEAT_OFFSET_,
+                END_DATE_,
+                FIRE_TIME_,
+                HANDLER_TYPE_,
+                HANDLER_CFG_,
+                CUSTOM_VALUES_ID_,
+                CREATE_TIME_,
+                TENANT_ID_,
+                CATEGORY_) VALUES
+            (
+                #{timerJob.id, jdbcType=NVARCHAR},
+                #{timerJob.revision, jdbcType=INTEGER},
+                #{timerJob.lockOwner, jdbcType=NVARCHAR},
+                #{timerJob.lockExpirationTime, jdbcType=TIMESTAMP},
+                #{timerJob.exclusive, jdbcType=BOOLEAN},
+                #{timerJob.executionId, jdbcType=NVARCHAR},
+                #{timerJob.processInstanceId, jdbcType=NVARCHAR},
+                #{timerJob.processDefinitionId, jdbcType=NVARCHAR},
+                #{timerJob.elementId, jdbcType=NVARCHAR},
+                #{timerJob.elementName, jdbcType=NVARCHAR},
+                #{timerJob.scopeId, jdbcType=NVARCHAR},
+                #{timerJob.subScopeId, jdbcType=NVARCHAR},
+                #{timerJob.scopeType, jdbcType=NVARCHAR},
+                #{timerJob.scopeDefinitionId, jdbcType=NVARCHAR},
+                #{timerJob.correlationId, jdbcType=NVARCHAR},
+                #{timerJob.retries, jdbcType=INTEGER},
+                #{timerJob.exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+                #{timerJob.exceptionMessage, jdbcType=NVARCHAR},
+                #{timerJob.duedate, jdbcType=TIMESTAMP},
+                #{timerJob.repeat, jdbcType=NVARCHAR},
+                #{timerJob.repeatOffset, jdbcType=INTEGER},
+                #{timerJob.endDate, jdbcType=TIMESTAMP},
+                #{timerJob.fireTime, jdbcType=TIMESTAMP},
+                #{timerJob.jobHandlerType, jdbcType=NVARCHAR},
+                #{timerJob.jobHandlerConfiguration, jdbcType=NVARCHAR},
+                #{timerJob.customValuesByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
+                #{timerJob.createTime, jdbcType=TIMESTAMP},
+                #{timerJob.tenantId, jdbcType=NVARCHAR},
+                #{timerJob.category, jdbcType=VARCHAR})
         </foreach>
         SELECT * FROM dual
     </insert>
@@ -516,23 +639,32 @@
             <if test="originalPersistentState.processDefinitionId != processDefinitionId">
                 PROC_DEF_ID_ = #{processDefinitionId, jdbcType=NVARCHAR},
             </if>
-            <if test="originalPersistentState.category != category">
-                CATEGORY_ = #{category, jdbcType=VARCHAR},
-            </if>
             <if test="originalPersistentState.elementId != elementId">
                 ELEMENT_ID_ = #{elementId, jdbcType=NVARCHAR},
             </if>
             <if test="originalPersistentState.elementName != elementName">
                 ELEMENT_NAME_ = #{elementName, jdbcType=NVARCHAR},
             </if>
-            <if test="originalPersistentState.duedate != duedate">
-                DUEDATE_ = #{duedate, jdbcType=TIMESTAMP},
+            <if test="originalPersistentState.correlationId != correlationId">
+                CORRELATION_ID_ = #{correlationId, jdbcType=NVARCHAR},
+            </if>
+            <if test="originalPersistentState.repeat != repeat">
+                REPEAT_ = #{repeat, jdbcType=NVARCHAR},
+            </if>
+            <if test="originalPersistentState.repeatOffset != repeatOffset">
+                REPEAT_OFFSET_ = #{repeatOffset, jdbcType=INTEGER},
+            </if>
+            <if test="originalPersistentState.endDate != endDate">
+                END_DATE_ = #{endDate, jdbcType=TIMESTAMP},
+            </if>
+            <if test="originalPersistentState.fireTime != fireTime">
+                FIRE_TIME_ = #{fireTime, jdbcType=TIMESTAMP},
+            </if>
+            <if test="originalPersistentState.category != category">
+                CATEGORY_ = #{category, jdbcType=VARCHAR},
             </if>
             <if test="originalPersistentState.createTime != createTime">
                 CREATE_TIME_ = #{createTime, jdbcType=TIMESTAMP},
-            </if>
-            <if test="originalPersistentState.correlationId != correlationId">
-                CORRELATION_ID_ = #{correlationId, jdbcType=NVARCHAR},
             </if>
             <if test="(exceptionByteArrayRef != null and originalPersistentState.exceptionByteArrayRef == null) or (exceptionByteArrayRef == null and originalPersistentState.exceptionByteArrayRef != null) or (originalPersistentState.exceptionByteArrayRef != exceptionByteArrayRef)">
                 EXCEPTION_STACK_ID_ = #{exceptionByteArrayRef, typeHandler=JobByteArrayRefTypeHandler},
@@ -541,116 +673,14 @@
                 EXCEPTION_MSG_ = #{exceptionMessage, jdbcType=NVARCHAR},
             </if>
         </set>
-        where ID_= #{id, jdbcType=NVARCHAR}
+        where ID_ = #{id, jdbcType=NVARCHAR}
         and REV_ = #{revision, jdbcType=INTEGER}
     </update>
 
-    <select id="selectTimerJobByTypeAndProcessDefinitionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        select J.*
-        from ${prefix}ACT_RU_TIMER_JOB J
-        where J.HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
-        and J.PROC_DEF_ID_ = #{parameter.processDefinitionId, jdbcType=NVARCHAR}
-    </select>
-
-    <select id="selectTimerJobsByProcessInstanceId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        select *
-        from ${prefix}ACT_RU_TIMER_JOB J
-        where J.PROCESS_INSTANCE_ID_ = #{parameter, jdbcType=NVARCHAR}
-    </select>
-
-    <select id="selectTimerJobsByExecutionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        select *
-        from ${prefix}ACT_RU_TIMER_JOB J
-        where J.EXECUTION_ID_ = #{parameter, jdbcType=NVARCHAR}
-    </select>
-
-    <select id="selectTimerJobByTypeAndProcessDefinitionKeyNoTenantId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject"
-        resultMap="jobResultMap">
-        select J.*
-        from ${prefix}ACT_RU_TIMER_JOB J
-        inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
-        where J.HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
-        and P.KEY_ = #{parameter.processDefinitionKey, jdbcType=NVARCHAR}
-        and (P.TENANT_ID_ = '' or P.TENANT_ID_ is null)
-    </select>
-
-    <select id="selectTimerJobByTypeAndProcessDefinitionKeyAndTenantId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject"
-        resultMap="jobResultMap">
-        select J.*
-        from ${prefix}ACT_RU_TIMER_JOB J
-        inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
-        where J.HANDLER_TYPE_ = #{parameter.handlerType, jdbcType=NVARCHAR}
-        and P.KEY_ = #{parameter.processDefinitionKey, jdbcType=NVARCHAR}
-        and P.TENANT_ID_ = #{parameter.tenantId, jdbcType=NVARCHAR}
-    </select>
-
-    <select id="selectTimerJobsByScopeIdAndSubScopeId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
-        select T.*
-        from ${prefix}ACT_RU_TIMER_JOB T
-        where T.SCOPE_ID_ = #{parameter.scopeId, jdbcType=NVARCHAR} and T.SUB_SCOPE_ID_ = #{parameter.subScopeId, jdbcType=NVARCHAR}
-    </select>
-
-    <!-- JOB DELETE STATEMENTS -->
-
-    <delete id="deleteTimerJob" parameterType="org.flowable.job.service.impl.persistence.entity.TimerJobEntityImpl">
-        delete from ${prefix}ACT_RU_TIMER_JOB where ID_ = #{id, jdbcType=NVARCHAR} and REV_ = #{revision, jdbcType=INTEGER}
-    </delete>
-
-    <delete id="deleteTimerJobs" parameterType="java.util.List">
-        delete from ${prefix}ACT_RU_TIMER_JOB where ID_ in
-        <foreach item="timerJob" index="index" collection="collection" open="(" separator="," close=")">
-            #{timerJob.id, jdbcType=NVARCHAR}
-        </foreach>
-    </delete>
-
-    <delete id="deleteTimerJobsByExecutionId" parameterType="string">
-        delete from ${prefix}ACT_RU_TIMER_JOB where PROCESS_INSTANCE_ID_ = #{id, jdbcType=NVARCHAR}
-    </delete>
-
-    <!-- JOB UPDATE STATEMENTS -->
-    <update id="updateTimerJobTenantIdForDeployment" parameterType="java.util.Map">
-        update ${prefix}ACT_RU_TIMER_JOB set
-        TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
-        where
-        ID_ in (
-            SELECT J.ID_ from ${prefix}ACT_RU_TIMER_JOB J
-            inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
-            inner join ${prefix}ACT_RE_DEPLOYMENT D on P.DEPLOYMENT_ID_ = D.ID_
-            where D.ID_ = #{deploymentId, jdbcType=NVARCHAR}
-        )
-    </update>
-
-    <update id="updateTimerJobLocks" parameterType="java.util.Map">
-        update ${prefix}ACT_RU_TIMER_JOB set LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR}, LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP}
-        where ID_ in
-        <foreach item="timerJob" index="index" collection="timerJobs" open="(" separator="," close=")">
-            #{timerJob.id, jdbcType=NVARCHAR}
-        </foreach>
-    </update>
-
-    <!-- See http://stackoverflow.com/questions/4429319/you-cant-specify-target-table-for-update-in-from-clause Tested this on MySQL 5.6: does NOT use a temporary
-        table (so good, performance) -->
-    <update id="updateTimerJobTenantIdForDeployment" databaseId="mysql" parameterType="java.util.Map">
-        update ${prefix}ACT_RU_TIMER_JOB set
-        TENANT_ID_ = #{tenantId, jdbcType=NVARCHAR}
-        where
-        ID_ in (
-
-        SELECT tempTask.tempId
-        FROM (
-            SELECT J.ID_ as tempId
-            FROM ${prefix}ACT_RU_TIMER_JOB J
-            inner join ${prefix}ACT_RE_PROCDEF P on J.PROC_DEF_ID_ = P.ID_
-            inner join ${prefix}ACT_RE_DEPLOYMENT D on P.DEPLOYMENT_ID_ = D.ID_
-            where D.ID_ = #{deploymentId, jdbcType=NVARCHAR}
-            ) AS tempTask
-        )
-    </update>
-
-    <update id="resetExpiredTimerJob" parameterType="map">
+    <update id="resetExpiredTimerJob" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
         update ${prefix}ACT_RU_TIMER_JOB
-        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
-        where ID_ = #{id, jdbcType=NVARCHAR}
+        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null
+        where ID_ = #{parameter.id, jdbcType=NVARCHAR}
     </update>
 
 </mapper>

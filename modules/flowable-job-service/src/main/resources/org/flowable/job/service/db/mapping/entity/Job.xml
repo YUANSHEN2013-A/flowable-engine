@@ -54,13 +54,13 @@
         from ${prefix}ACT_RU_JOB RES
         <where>
             <if test="parameter.jobExecutionScope == null">
-                SCOPE_TYPE_ is null and LOCK_EXP_TIME_ is null
+                SCOPE_TYPE_ is null and LOCK_OWNER_ is null and LOCK_EXP_TIME_ is null
             </if>
             <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope != 'all'">
-                SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR} and LOCK_EXP_TIME_ is null
+                SCOPE_TYPE_ = #{parameter.jobExecutionScope, jdbcType=NVARCHAR} and LOCK_OWNER_ is null and LOCK_EXP_TIME_ is null
             </if>
             <if test="parameter.jobExecutionScope != null and parameter.jobExecutionScope == 'all'">
-                LOCK_EXP_TIME_ is null
+                LOCK_OWNER_ is null and LOCK_EXP_TIME_ is null
             </if>
             <if test="parameter.enabledCategories != null">
                 and CATEGORY_ in
@@ -416,6 +416,17 @@
         <foreach item="job" index="index" collection="jobs" open="(" separator="," close=")">
             #{job.id, jdbcType=NVARCHAR}
         </foreach>
+    </update>
+
+    <update id="lockJobIfNeeded" parameterType="java.util.Map">
+        update ${prefix}ACT_RU_JOB
+        set LOCK_OWNER_ = #{lockOwner, jdbcType=NVARCHAR},
+            LOCK_EXP_TIME_ = #{lockExpirationTime, jdbcType=TIMESTAMP},
+            REV_ = #{nextRevision, jdbcType=INTEGER}
+        where ID_ = #{id, jdbcType=NVARCHAR}
+        and REV_ = #{revision, jdbcType=INTEGER}
+        and LOCK_OWNER_ is null
+        and LOCK_EXP_TIME_ is null
     </update>
 
     <!-- JOB INSERT -->

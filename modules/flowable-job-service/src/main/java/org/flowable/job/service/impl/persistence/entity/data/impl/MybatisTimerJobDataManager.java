@@ -124,6 +124,17 @@ public class MybatisTimerJobDataManager extends AbstractDataManager<TimerJobEnti
     }
 
     @Override
+    public boolean lockJobIfNeeded(String jobId, int revision, String lockOwner, Date lockExpirationTime) {
+        Map<String, Object> params = new HashMap<>(5);
+        params.put("id", jobId);
+        params.put("revision", revision);
+        params.put("nextRevision", revision + 1);
+        params.put("lockOwner", lockOwner);
+        params.put("lockExpirationTime", lockExpirationTime);
+        return getDbSqlSession().directUpdate("lockTimerJobIfNeeded", params) > 0;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public List<TimerJobEntity> findJobsByTypeAndProcessDefinitionId(String jobHandlerType, String processDefinitionId) {
         Map<String, String> params = new HashMap<>(2);

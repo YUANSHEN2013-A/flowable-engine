@@ -59,6 +59,11 @@ public abstract class JobInfoEntityManagerImpl<T extends JobInfoEntity, DM exten
     }
 
     @Override
+    public boolean lockJobIfNeeded(String jobId, int revision, String lockOwner, Date lockExpirationTime) {
+        return dataManager.lockJobIfNeeded(jobId, revision, lockOwner, lockExpirationTime);
+    }
+
+    @Override
     public void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime) {
         dataManager.bulkUpdateJobLockWithoutRevisionCheck(jobEntities, lockOwner, lockExpirationTime);
     }

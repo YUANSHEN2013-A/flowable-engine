@@ -47,21 +47,11 @@ public class AcquireJobsCmd implements Command<List<? extends JobInfoEntity>> {
 
     @Override
     public List<? extends JobInfoEntity> execute(CommandContext commandContext) {
+        JobServiceConfiguration jobServiceConfiguration = asyncExecutor.getJobServiceConfiguration();
+        GregorianCalendar lockExpirationTime = calculateLockExpirationTime(asyncExecutor.getAsyncJobLockTimeInMillis(), jobServiceConfiguration);
         int maxResults = Math.min(remainingCapacity, asyncExecutor.getMaxAsyncJobsDuePerAcquisition());
-        List<String> enabledCategories = asyncExecutor.getJobServiceConfiguration().getEnabledJobCategories();
-        List<? extends JobInfoEntity> jobs = jobEntityManager.findJobsToExecute(enabledCategories, new Page(0, maxResults));
-
-        for (JobInfoEntity job : jobs) {
-            lockJob(job, asyncExecutor.getAsyncJobLockTimeInMillis(), asyncExecutor.getJobServiceConfiguration());
-        }
-
-        return jobs;
-    }
-
-    protected void lockJob(JobInfoEntity job, int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {
-        GregorianCalendar gregorianCalendar = calculateLockExpirationTime(lockTimeInMillis, jobServiceConfiguration);
-        job.setLockOwner(asyncExecutor.getLockOwner());
-        job.setLockExpirationTime(gregorianCalendar.getTime());
+        List<String> enabledCategories = jobServiceConfiguration.getEnabledJobCategories();
+        return jobEntityManager.findJobsToExecuteAndLock(enabledCategories, new Page(0, maxResults), asyncExecutor.getLockOwner(), lockExpirationTime.getTime());
     }
 
     protected GregorianCalendar calculateLockExpirationTime(int lockTimeInMillis, JobServiceConfiguration jobServiceConfiguration) {

@@ -74,6 +74,17 @@ public class MybatisJobDataManager extends AbstractDataManager<JobEntity> implem
     }
 
     @Override
+    public boolean lockJobIfNeeded(String jobId, int revision, String lockOwner, Date lockExpirationTime) {
+        Map<String, Object> params = new HashMap<>(5);
+        params.put("id", jobId);
+        params.put("revision", revision);
+        params.put("nextRevision", revision + 1);
+        params.put("lockOwner", lockOwner);
+        params.put("lockExpirationTime", lockExpirationTime);
+        return getDbSqlSession().directUpdate("lockJobIfNeeded", params) > 0;
+    }
+
+    @Override
     public List<JobEntity> findJobsByExecutionId(final String executionId) {
         DbSqlSession dbSqlSession = getDbSqlSession();
         

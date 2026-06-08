@@ -12,6 +12,7 @@
  */
 package org.flowable.job.service.impl.persistence.entity;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -52,6 +53,45 @@ public interface JobInfoEntityManager <T extends JobInfoEntity> extends EntityMa
      * Changes the tenantId for all jobs related to a given DeploymentEntity.
      */
     void updateJobTenantIdForDeployment(String deploymentId, String newTenantId);
+
+    default List<T> findJobsToExecuteAndLock(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {
+        int maxResults = page.getMaxResults();
+        List<T> acquiredJobs = new ArrayList<>(maxResults);
+        int noProgressCounter = 0;
+
+        while (acquiredJobs.size() < maxResults) {
+            int remainingResults = maxResults - acquiredJobs.size();
+            List<T> jobs = findJobsToExecute(enabledCategories, new Page(page.getFirstResult(), remainingResults));
+            if (jobs.isEmpty()) {
+                break;
+            }
+
+            int acquiredInRound = 0;
+            for (T job : jobs) {
+                if (lockJobIfNeeded(job.getId(), job.getRevision(), lockOwner, lockExpirationTime)) {
+                    acquiredJobs.add(job);
+                    acquiredInRound++;
+                }
+            }
+
+            if (jobs.size() < remainingResults) {
+                break;
+            }
+
+            if (acquiredInRound == 0) {
+                noProgressCounter++;
+                if (noProgressCounter > 1) {
+                    break;
+                }
+            } else {
+                noProgressCounter = 0;
+            }
+        }
+
+        return acquiredJobs;
+    }
+
+    boolean lockJobIfNeeded(String jobId, int revision, String lockOwner, Date lockExpirationTime);
 
     // Done with a default method, as otherwise the generics make the code hard to follow in the AcquireJobsCmd
     default List<T> findJobsToExecuteAndLockInBulk(List<String> enabledCategories, Page page, String lockOwner, Date lockExpirationTime) {

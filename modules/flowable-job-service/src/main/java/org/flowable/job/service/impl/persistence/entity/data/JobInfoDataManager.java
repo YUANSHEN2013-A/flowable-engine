@@ -33,6 +33,10 @@ public interface JobInfoDataManager<T extends JobInfoEntity> extends DataManager
 
     void bulkUpdateJobLockWithoutRevisionCheck(List<T> jobEntities, String lockOwner, Date lockExpirationTime);
 
+    default boolean lockJobIfNeeded(String jobId, int revision, String lockOwner, Date lockExpirationTime) {
+        throw new UnsupportedOperationException("Locking jobs individually is not supported by " + getClass().getName());
+    }
+
     void resetExpiredJob(String jobId);
 
 }
