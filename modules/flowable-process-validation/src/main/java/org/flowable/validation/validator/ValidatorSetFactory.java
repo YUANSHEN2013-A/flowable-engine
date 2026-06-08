@@ -29,6 +29,7 @@ import org.flowable.validation.validator.impl.FlowableEventListenerValidator;
 import org.flowable.validation.validator.impl.IntermediateCatchEventValidator;
 import org.flowable.validation.validator.impl.IntermediateThrowEventValidator;
 import org.flowable.validation.validator.impl.MessageValidator;
+import org.flowable.validation.validator.impl.MultiInstanceUserTaskValidator;
 import org.flowable.validation.validator.impl.OperationValidator;
 import org.flowable.validation.validator.impl.ScriptTaskValidator;
 import org.flowable.validation.validator.impl.SendTaskValidator;
@@ -59,6 +60,7 @@ public class ValidatorSetFactory {
         validatorSet.addValidator(new StartEventValidator());
         validatorSet.addValidator(new SequenceflowValidator());
         validatorSet.addValidator(new UserTaskValidator());
+        validatorSet.addValidator(new MultiInstanceUserTaskValidator());
         validatorSet.addValidator(new ServiceTaskValidator());
         validatorSet.addValidator(new ScriptTaskValidator());
         validatorSet.addValidator(new SendTaskValidator());

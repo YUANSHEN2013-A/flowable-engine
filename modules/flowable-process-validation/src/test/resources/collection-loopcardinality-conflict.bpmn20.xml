@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://www.flowable.org/test">
+    <process id="collectionLoopCardinalityConflict" name="Collection Loop Cardinality Conflict" isExecutable="true">
+        <startEvent id="start" />
+        <userTask id="multiUserTask" name="Multi Instance User Task" flowable:assignee="${item.assignee}">
+            <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${users}" flowable:elementVariable="item">
+                <loopCardinality>10</loopCardinality>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="multiUserTask" />
+        <endEvent id="end" />
+        <sequenceFlow id="flow2" sourceRef="multiUserTask" targetRef="end" />
+    </process>
+</definitions>

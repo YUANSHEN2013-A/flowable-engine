@@ -140,4 +140,10 @@ public interface Problems {
     String DI_DOES_NOT_REFERENCE_FLOWNODE = "flowable-di-does-not-reference-flownode";
     String DI_DOES_NOT_REFERENCE_SEQ_FLOW = "flowable-di-does-not-reference-seq-flow";
 
+    String MULTI_INSTANCE_USER_TASK_MISSING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-missing-element-variable";
+    String MULTI_INSTANCE_USER_TASK_ASSIGNEE_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-assignee-not-using-element-variable";
+    String MULTI_INSTANCE_USER_TASK_CANDIDATE_USERS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-users-not-using-element-variable";
+    String MULTI_INSTANCE_USER_TASK_CANDIDATE_GROUPS_NOT_USING_ELEMENT_VARIABLE = "flowable-multi-instance-user-task-candidate-groups-not-using-element-variable";
+    String MULTI_INSTANCE_USER_TASK_COLLECTION_AND_LOOPCARDINALITY_CONFLICT = "flowable-multi-instance-user-task-collection-and-loopcardinality-conflict";
+
 }
