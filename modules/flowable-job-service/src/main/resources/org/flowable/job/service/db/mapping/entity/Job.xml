@@ -648,10 +648,10 @@
         and REV_ = #{revision, jdbcType=INTEGER}
     </update>
 
-    <update id="resetExpiredJob" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
+    <update id="resetExpiredJob" parameterType="map">
         update ${prefix}ACT_RU_JOB
-        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{parameter.now, jdbcType=TIMESTAMP}
-        where ID_ = #{parameter.id, jdbcType=NVARCHAR}
+        set REV_ = REV_ + 1, LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
+        where ID_ = #{id, jdbcType=NVARCHAR}
     </update>
 
     <select id="selectTimersByExecutionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">

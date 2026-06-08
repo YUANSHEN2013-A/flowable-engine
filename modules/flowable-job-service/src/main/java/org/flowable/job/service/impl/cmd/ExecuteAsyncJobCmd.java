@@ -77,6 +77,14 @@ public class ExecuteAsyncJobCmd implements Command<Object>, Serializable {
             return null;
         }
 
+        if (jobServiceConfiguration.getAsyncExecutor() != null) {
+            String currentLockOwner = jobServiceConfiguration.getAsyncExecutor().getLockOwner();
+            if (currentLockOwner != null && !currentLockOwner.equals(job.getLockOwner())) {
+                LOGGER.debug("Job {} has lock owner {}, but expected {}. Will not be executed.", job.getId(), job.getLockOwner(), currentLockOwner);
+                return null;
+            }
+        }
+
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Executing async job {}", job.getId());
         }

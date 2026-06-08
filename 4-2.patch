@@ -1,0 +1,68 @@
+diff --git a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/ExecuteAsyncJobCmd.java b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/ExecuteAsyncJobCmd.java
+index 37353529d4..abb703ebf7 100644
+--- a/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/ExecuteAsyncJobCmd.java
++++ b/modules/flowable-job-service/src/main/java/org/flowable/job/service/impl/cmd/ExecuteAsyncJobCmd.java
+@@ -77,6 +77,14 @@ public class ExecuteAsyncJobCmd implements Command<Object>, Serializable {
+             return null;
+         }
+ 
++        if (jobServiceConfiguration.getAsyncExecutor() != null) {
++            String currentLockOwner = jobServiceConfiguration.getAsyncExecutor().getLockOwner();
++            if (currentLockOwner != null && !currentLockOwner.equals(job.getLockOwner())) {
++                LOGGER.debug("Job {} has lock owner {}, but expected {}. Will not be executed.", job.getId(), job.getLockOwner(), currentLockOwner);
++                return null;
++            }
++        }
++
+         if (LOGGER.isDebugEnabled()) {
+             LOGGER.debug("Executing async job {}", job.getId());
+         }
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
+index 84590cb2d3..6abe5500f7 100755
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/ExternalWorkerJob.xml
+@@ -709,10 +709,10 @@
+         and REV_ = #{revision, jdbcType=INTEGER}
+     </update>
+ 
+-    <update id="resetExpiredExternalWorkerJob" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
++    <update id="resetExpiredExternalWorkerJob" parameterType="map">
+         update ${prefix}ACT_RU_EXTERNAL_JOB
+-        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{parameter.now, jdbcType=TIMESTAMP}
+-        where ID_ = #{parameter.id, jdbcType=NVARCHAR}
++        set REV_ = REV_ + 1, LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
++        where ID_ = #{id, jdbcType=NVARCHAR}
+     </update>
+ 
+ </mapper>
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
+index 4d0f07bcd6..197ae8e111 100755
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/Job.xml
+@@ -648,10 +648,10 @@
+         and REV_ = #{revision, jdbcType=INTEGER}
+     </update>
+ 
+-    <update id="resetExpiredJob" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject">
++    <update id="resetExpiredJob" parameterType="map">
+         update ${prefix}ACT_RU_JOB
+-        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{parameter.now, jdbcType=TIMESTAMP}
+-        where ID_ = #{parameter.id, jdbcType=NVARCHAR}
++        set REV_ = REV_ + 1, LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
++        where ID_ = #{id, jdbcType=NVARCHAR}
+     </update>
+ 
+     <select id="selectTimersByExecutionId" parameterType="org.flowable.common.engine.impl.db.ListQueryParameterObject" resultMap="jobResultMap">
+diff --git a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
+index d4a89627a3..387c5fabea 100644
+--- a/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
++++ b/modules/flowable-job-service/src/main/resources/org/flowable/job/service/db/mapping/entity/TimerJob.xml
+@@ -649,7 +649,7 @@
+ 
+     <update id="resetExpiredTimerJob" parameterType="map">
+         update ${prefix}ACT_RU_TIMER_JOB
+-        set LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
++        set REV_ = REV_ + 1, LOCK_OWNER_ = null, LOCK_EXP_TIME_ = null, CREATE_TIME_ = #{now, jdbcType=TIMESTAMP}
+         where ID_ = #{id, jdbcType=NVARCHAR}
+     </update>
+ 
